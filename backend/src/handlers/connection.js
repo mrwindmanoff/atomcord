@@ -1,25 +1,22 @@
 import { io } from '../server.js';
-import { registerUser, loginUser, getUser, getAllUsers, removeUser } from '../store/users.js';
+import { registerUser, loginUser, addUser, getAllUsers, getUser, removeUser } from '../store/users.js';
 
 export function handleConnection(socket) {
   
-  // Регистрация
+  // Регистрация с паролем
   socket.on('register', ({ nickname, password }, callback) => {
     console.log(`📝 Регистрация: ${nickname}`);
     const result = registerUser(nickname, password);
     
     if (result.success) {
-      socket.userId = result.user.id;
-      socket.nickname = nickname;
+      const user = addUser(socket.id, nickname, result.user.id);
       
-      // Отправляем список всем
       io.emit('users-list', getAllUsers());
       socket.broadcast.emit('user-joined', { nickname });
       
       callback({ 
         success: true, 
         nickname, 
-        token: result.user.token,
         userId: result.user.id
       });
     } else {
@@ -27,19 +24,17 @@ export function handleConnection(socket) {
     }
   });
   
-  // Вход
+  // Вход с паролем
   socket.on('login', ({ nickname, password }, callback) => {
     console.log(`🔐 Вход: ${nickname}`);
     const result = loginUser(nickname, password);
     
     if (result.success) {
-      socket.userId = result.user.id;
-      socket.nickname = nickname;
+      const user = addUser(socket.id, nickname, result.user.id);
       
       callback({ 
         success: true, 
         nickname, 
-        token: result.user.token,
         userId: result.user.id
       });
     } else {
@@ -55,11 +50,12 @@ export function handleConnection(socket) {
   
   // Отключение
   socket.on('disconnect', () => {
-    if (socket.nickname) {
-      removeUser(socket.userId);
+    const user = getUser(socket.id);
+    if (user) {
+      removeUser(socket.id);
       io.emit('users-list', getAllUsers());
-      io.emit('user-left', { nickname: socket.nickname });
-      console.log(`👋 Пользователь вышел: ${socket.nickname}`);
+      io.emit('user-left', { nickname: user.nickname });
+      console.log(`👋 Пользователь вышел: ${user.nickname}`);
     }
   });
 }

@@ -1,18 +1,12 @@
-import crypto from 'crypto';
+// Хранилище пользователей
+const usersBySocket = new Map(); // socketId -> { id, nickname }
+const usersById = new Map(); // id -> { id, nickname, password }
 
-// Хранилище пользователей: id -> { id, nickname, password, token, joinedAt }
-const users = new Map();
 let nextId = 1;
 
-// Генерация простого токена
-function generateToken() {
-  return crypto.randomBytes(32).toString('hex');
-}
-
-// Регистрация
 export function registerUser(nickname, password) {
-  // Проверяем существует ли пользователь
-  for (const user of users.values()) {
+  // Проверяем существование
+  for (const user of usersById.values()) {
     if (user.nickname === nickname) {
       return { success: false, error: 'Пользователь уже существует' };
     }
@@ -23,74 +17,41 @@ export function registerUser(nickname, password) {
   }
   
   const id = nextId++;
-  const token = generateToken();
+  const user = { id, nickname, password };
+  usersById.set(id, user);
   
-  users.set(id, {
-    id,
-    nickname,
-    password, // В реальном проекте нужно хэшировать!
-    token,
-    joinedAt: Date.now()
-  });
-  
-  return { 
-    success: true, 
-    user: { id, nickname, token }
-  };
+  return { success: true, user };
 }
 
-// Вход
 export function loginUser(nickname, password) {
-  for (const user of users.values()) {
+  for (const user of usersById.values()) {
     if (user.nickname === nickname && user.password === password) {
-      // Обновляем токен при каждом входе
-      const newToken = generateToken();
-      user.token = newToken;
-      
-      return { 
-        success: true, 
-        user: { id: user.id, nickname: user.nickname, token: newToken }
-      };
+      return { success: true, user };
     }
   }
-  
   return { success: false, error: 'Неверный никнейм или пароль' };
 }
 
-// Получить пользователя по socketId (для обратной совместимости)
-export function getUser(socketId) {
-  // Временно: ищем по socketId (нужно переделать позже)
-  for (const user of users.values()) {
-    if (user.socketId === socketId) return user;
+export function addUser(socketId, nickname, userId) {
+  const user = usersById.get(userId);
+  if (user) {
+    usersBySocket.set(socketId, { id: user.id, nickname: user.nickname });
+    return user;
   }
   return null;
 }
 
-export function addUser(socketId, nickname) {
-  // Для обратной совместимости
-  const id = nextId++;
-  const user = {
-    id,
-    nickname,
-    socketId,
-    joinedAt: Date.now()
-  };
-  users.set(id, user);
-  return user;
+export function getUser(socketId) {
+  return usersBySocket.get(socketId);
 }
 
-export function removeUser(userId) {
-  users.delete(userId);
+export function removeUser(socketId) {
+  usersBySocket.delete(socketId);
 }
 
 export function getAllUsers() {
-  return Array.from(users.values()).map(user => ({
-    id: user.id,
-    nickname: user.nickname,
-    joinedAt: user.joinedAt
+  return Array.from(usersBySocket.values()).map(u => ({
+    id: u.id,
+    nickname: u.nickname
   }));
-}
-
-export function getUserById(id) {
-  return users.get(id);
 }
