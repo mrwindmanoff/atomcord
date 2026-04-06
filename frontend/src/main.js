@@ -29,6 +29,13 @@ function clearSavedUser() {
   localStorage.removeItem('atomcord_user');
 }
 
+function escapeHtml(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 // ========== СТРАНИЦА ВХОДА ==========
 function renderLogin() {
   app.innerHTML = `
@@ -224,7 +231,6 @@ function renderMainApp() {
     </div>
   `;
   
-  // Создаём инпут
   const inputArea = document.getElementById('message-input-area');
   if (inputArea) {
     inputArea.innerHTML = `
@@ -251,7 +257,6 @@ function renderMainApp() {
       }
     });
     
-    // Фокус
     setTimeout(() => messageInput.focus(), 200);
     setTimeout(() => messageInput.focus(), 500);
   }
@@ -267,7 +272,6 @@ function renderMainApp() {
     });
   }
   
-  // Выход
   const logoutBtn = document.getElementById('logout-btn');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
@@ -277,7 +281,6 @@ function renderMainApp() {
     });
   }
   
-  // Сокет события
   if (socket) {
     socket.emit('join-text-channel', 'general');
     
@@ -317,13 +320,6 @@ function renderMainApp() {
       }
     });
   }
-}
-
-function escapeHtml(str) {
-  if (!str) return '';
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
 }
 
 // ========== ЗАПУСК ==========
