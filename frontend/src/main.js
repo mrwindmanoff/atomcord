@@ -165,6 +165,7 @@ function renderRegister() {
   const backBtn = document.getElementById('back-to-login-btn');
   const errorDiv = document.getElementById('error');
   
+  // ===== МНОЖЕСТВЕННЫЙ ПРИНУДИТЕЛЬНЫЙ ФОКУС (как в логине) =====
   const setFocus = () => {
     if (nicknameInput) {
       nicknameInput.focus();
@@ -174,6 +175,7 @@ function renderRegister() {
   setTimeout(setFocus, 100);
   setTimeout(setFocus, 300);
   setTimeout(setFocus, 500);
+  setTimeout(setFocus, 1000);
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -188,14 +190,17 @@ function renderRegister() {
     
     if (nickname.length < 2) {
       showError('Никнейм минимум 2 символа');
+      nicknameInput.focus();
       return;
     }
     if (password.length < 4) {
       showError('Пароль минимум 4 символа');
+      passwordInput.focus();
       return;
     }
     if (password !== confirm) {
       showError('Пароли не совпадают');
+      confirmInput.focus();
       return;
     }
     
@@ -232,6 +237,7 @@ function renderRegister() {
   registerBtn.onclick = handleRegister;
   backBtn.onclick = renderLogin;
   
+  // Локальные обработчики Enter
   nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
   passwordInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
   confirmInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
