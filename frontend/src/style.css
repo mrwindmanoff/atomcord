@@ -530,3 +530,15 @@ input, textarea {
 input:focus, textarea:focus {
   outline: 2px solid #5865f2;
 }
+/* В КОНЕЦ ФАЙЛА ДОБАВИТЬ */
+input, textarea {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  pointer-events: auto !important;
+}
+
+.login-input, .message-input {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+  pointer-events: auto !important;
+}
