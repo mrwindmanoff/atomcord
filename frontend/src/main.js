@@ -38,6 +38,10 @@ function escapeHtml(str) {
 
 // ========== СТРАНИЦА ВХОДА ==========
 function renderLogin() {
+  <div class="login-logo">
+    <span class="logo-atom">⚛️</span>
+    <span class="logo-text">AtomCord</span>
+  </div>
   app.innerHTML = `
     <div class="login-screen">
       <div class="login-card">
@@ -202,6 +206,10 @@ function renderRegister() {
 
 // ========== ОСНОВНОЙ ЧАТ ==========
 function renderMainApp() {
+  <div class="logo">
+    <span class="logo-atom">⚛️</span>
+    <span class="logo-text">AtomCord</span>
+  </div>
   app.innerHTML = `
     <div class="main-layout">
       <div class="sidebar">

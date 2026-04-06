@@ -5,22 +5,83 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>AtomCord — Атомный голосовой штаб</title>
   
-  <!-- ПОДКЛЮЧАЕМ СТИЛИ -->
   <link rel="stylesheet" href="/src/style.css">
   
-  <!-- ГАРАНТИЯ РАБОТЫ КЛАВИАТУРЫ -->
   <style>
+    /* Дополнительные гарантии для клавиатуры */
     input, textarea {
       -webkit-user-select: text !important;
       user-select: text !important;
       pointer-events: auto !important;
+    }
+    
+    /* Анимация для лого */
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    
+    .logo-atom {
+      display: inline-block;
+      animation: spin 3s linear infinite;
+    }
+    
+    .login-logo .logo-atom {
+      font-size: 48px;
+      animation: spin 3s linear infinite;
+    }
+    
+    .sidebar .logo .logo-atom {
+      font-size: 24px;
+      animation: spin 3s linear infinite;
     }
   </style>
 </head>
 <body>
   <div id="app"></div>
   
-  <!-- ОСНОВНОЙ КОД -->
   <script type="module" src="/src/main.js"></script>
+  
+  <!-- ФИКС КЛАВИАТУРЫ (ГАРАНТИРОВАННО РАБОТАЕТ) -->
+  <script>
+    (function() {
+      console.log('🔧 Фикс клавиатуры активирован');
+      
+      function fixAllInputs() {
+        document.querySelectorAll('input, textarea').forEach(input => {
+          if (input.hasAttribute('data-fixed')) return;
+          
+          // Сохраняем значение
+          const value = input.value;
+          
+          // Создаём новый элемент
+          const newInput = document.createElement(input.tagName);
+          for (let attr of input.attributes) {
+            newInput.setAttribute(attr.name, attr.value);
+          }
+          newInput.className = input.className;
+          newInput.value = value;
+          newInput.setAttribute('data-fixed', 'true');
+          
+          // Копируем стили
+          newInput.style.cssText = input.style.cssText;
+          
+          // Заменяем
+          input.parentNode.replaceChild(newInput, input);
+        });
+      }
+      
+      // Запускаем несколько раз
+      setTimeout(fixAllInputs, 100);
+      setTimeout(fixAllInputs, 500);
+      setTimeout(fixAllInputs, 1000);
+      
+      // Следим за новыми полями
+      const observer = new MutationObserver(() => {
+        fixAllInputs();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    })();
+  </script>
 </body>
 </html>

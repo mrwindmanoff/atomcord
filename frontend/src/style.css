@@ -257,3 +257,64 @@ body {
   color: white;
   cursor: pointer;
 }
+/* АНИМАЦИИ */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.05); }
+}
+
+/* ЛОГОТИП */
+.logo-atom {
+  display: inline-block;
+  animation: spin 3s linear infinite;
+}
+
+.login-logo .logo-atom {
+  font-size: 48px;
+  animation: spin 3s linear infinite;
+}
+
+.sidebar .logo .logo-atom {
+  font-size: 24px;
+  animation: spin 3s linear infinite;
+}
+
+.logo-text {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* АНИМАЦИЯ СООБЩЕНИЙ */
+.message {
+  animation: fadeIn 0.2s ease;
+}
+
+/* АНИМАЦИЯ ГОЛОСОВОЙ ИКОНКИ */
+.voice-icon {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* АНИМАЦИЯ КНОПОК */
+.login-button, .send-btn, .voice-btn {
+  transition: all 0.2s ease;
+}
+
+.login-button:hover, .send-btn:hover, .voice-btn:hover {
+  transform: translateY(-2px);
+}
+
+.login-button:active, .send-btn:active, .voice-btn:active {
+  transform: translateY(0);
+}
