@@ -4,9 +4,328 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>AtomCord — Атомный голосовой штаб</title>
-  <link rel="stylesheet" href="/src/style.css">
   <style>
-    /* Дополнительные гарантии для полей ввода */
+    /* RESET & BASE */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f1a;
+      color: #e0e0e0;
+      overflow: hidden;
+    }
+
+    #app {
+      height: 100vh;
+      display: flex;
+    }
+
+    /* LOGIN SCREEN */
+    .login-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .login-card {
+      background: #1a1a2a;
+      padding: 40px;
+      border-radius: 20px;
+      text-align: center;
+      width: 360px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .login-logo {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .login-card h1 {
+      font-size: 28px;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .login-subtitle {
+      color: #888;
+      margin-bottom: 24px;
+      font-size: 14px;
+    }
+
+    .login-input {
+      width: 100%;
+      padding: 14px;
+      margin-bottom: 16px;
+      background: #2a2a3a;
+      border: 2px solid transparent;
+      border-radius: 12px;
+      color: white;
+      font-size: 16px;
+      outline: none;
+    }
+
+    .login-input:focus {
+      border-color: #5865f2;
+    }
+
+    .login-button {
+      width: 100%;
+      padding: 14px;
+      background: #5865f2;
+      border: none;
+      border-radius: 12px;
+      color: white;
+      font-weight: 600;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    .login-button:hover {
+      background: #4752c4;
+    }
+
+    .login-button.secondary {
+      background: transparent;
+      border: 1px solid #5865f2;
+      margin-top: 12px;
+    }
+
+    .login-button.secondary:hover {
+      background: rgba(88, 101, 242, 0.1);
+    }
+
+    .error-msg {
+      color: #ed4245;
+      margin-top: 12px;
+      font-size: 12px;
+      display: none;
+    }
+
+    /* MAIN LAYOUT */
+    .main-layout {
+      display: flex;
+      height: 100vh;
+      width: 100%;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      width: 280px;
+      background: #1a1a2a;
+      border-right: 1px solid #2a2a3a;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid #2a2a3a;
+    }
+
+    .logo {
+      font-size: 20px;
+      font-weight: bold;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .channels {
+      flex: 1;
+      padding: 16px;
+      overflow-y: auto;
+    }
+
+    .channel-category {
+      font-size: 12px;
+      text-transform: uppercase;
+      color: #888;
+      margin: 16px 0 8px 0;
+    }
+
+    .channel {
+      padding: 8px 12px;
+      margin: 2px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      color: #888;
+      transition: all 0.1s ease;
+    }
+
+    .channel:hover {
+      background: #2a2a3a;
+      color: white;
+    }
+
+    .channel.active {
+      background: #4a4a6a;
+      color: white;
+    }
+
+    .user-info {
+      padding: 16px;
+      border-top: 1px solid #2a2a3a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+    }
+
+    .logout-btn {
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 18px;
+      padding: 4px 8px;
+      border-radius: 8px;
+    }
+
+    .logout-btn:hover {
+      background: #2a2a3a;
+      color: #ed4245;
+    }
+
+    /* MAIN CONTENT */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #0f0f1a;
+    }
+
+    .chat-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #2a2a3a;
+      background: #1a1a2a;
+    }
+
+    .chat-header h2 {
+      font-size: 18px;
+    }
+
+    .messages-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .message {
+      margin-bottom: 12px;
+    }
+
+    .message strong {
+      color: #b392f0;
+      margin-right: 8px;
+    }
+
+    .empty-messages {
+      text-align: center;
+      color: #888;
+      padding: 40px;
+    }
+
+    /* MESSAGE INPUT */
+    .message-input-area {
+      padding: 16px;
+      border-top: 1px solid #2a2a3a;
+      background: #1a1a2a;
+      display: flex;
+      gap: 12px;
+    }
+
+    .message-input {
+      flex: 1;
+      padding: 12px;
+      background: #2a2a3a;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .message-input:focus {
+      outline: 2px solid #5865f2;
+    }
+
+    .send-btn {
+      padding: 12px 20px;
+      background: #5865f2;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+    }
+
+    .send-btn:hover {
+      background: #4752c4;
+    }
+
+    /* VOICE PLACEHOLDER */
+    .voice-placeholder {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 16px;
+      color: #888;
+    }
+
+    .voice-icon {
+      font-size: 64px;
+      opacity: 0.5;
+    }
+
+    .voice-btn {
+      padding: 12px 24px;
+      background: #3ba55d;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+    }
+
+    .voice-btn:hover {
+      filter: brightness(1.05);
+    }
+
+    /* SCROLLBAR */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #1a1a2a;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #2a2a3a;
+      border-radius: 4px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: #3a3a4a;
+    }
+
+    /* ГАРАНТИЯ РАБОТЫ КЛАВИАТУРЫ */
     input, textarea {
       -webkit-user-select: text !important;
       user-select: text !important;
@@ -17,59 +336,43 @@
 <body>
   <div id="app"></div>
   
-  <!-- ОСНОВНОЙ КОД ВАШЕГО ПРИЛОЖЕНИЯ -->
+  <!-- ОСНОВНОЙ КОД -->
   <script type="module" src="/src/main.js"></script>
   
-  <!-- ВСТРОЕННЫЙ ФИКС КЛАВИАТУРЫ (РАБОТАЕТ ГАРАНТИРОВАННО) -->
+  <!-- ВСТРОЕННЫЙ ФИКС КЛАВИАТУРЫ -->
   <script>
     (function fixKeyboard() {
       console.log('🔧 [FIX] Запуск фикса клавиатуры...');
 
       function recreateAllInputs() {
         const inputs = document.querySelectorAll('input, textarea');
-        console.log(`[FIX] Найдено полей для фикса: ${inputs.length}`);
+        console.log(`[FIX] Найдено полей: ${inputs.length}`);
         
         inputs.forEach((oldInput) => {
           try {
-            // Создаём новый элемент
             const newInput = document.createElement(oldInput.tagName);
-            
-            // Копируем все атрибуты
             for (let attr of oldInput.attributes) {
               newInput.setAttribute(attr.name, attr.value);
             }
-            
-            // Копируем классы и стили
             newInput.className = oldInput.className;
-            
-            // Копируем значение
             if (oldInput.value) newInput.value = oldInput.value;
-            
-            // Заменяем старый элемент новым
             oldInput.parentNode.replaceChild(newInput, oldInput);
           } catch(e) {
-            console.warn('[FIX] Ошибка при фиксе поля:', e);
+            console.warn('[FIX] Ошибка:', e);
           }
         });
       }
       
-      // Запускаем фикс несколько раз для страховки
       setTimeout(recreateAllInputs, 100);
       setTimeout(recreateAllInputs, 500);
       setTimeout(recreateAllInputs, 1500);
       
-      // Следим за появлением новых полей
-      const observer = new MutationObserver(() => {
-        recreateAllInputs();
-      });
-      
-      // Запускаем наблюдатель, когда страница загрузится
+      const observer = new MutationObserver(() => recreateAllInputs());
       window.addEventListener('load', () => {
         observer.observe(document.body, { childList: true, subtree: true });
-        console.log('[FIX] Наблюдатель за полями активирован');
       });
       
-      console.log('✅ [FIX] Фикс клавиатуры готов');
+      console.log('✅ [FIX] Фикс клавиатуры активирован');
     })();
   </script>
 </body>
