@@ -1,8 +1,9 @@
 import { io } from '../server.js';
 import { getUser } from '../store/users.js';
+import { createInvite, getInvite, useInvite, getUserInvites, deleteInvite } from '../store/invites.js';
 
 // Хранилище серверов (в памяти)
-const servers = new Map(); // serverId -> { id, name, ownerId, channels, members }
+const servers = new Map();
 let nextServerId = 1;
 let nextChannelId = 1;
 
@@ -18,7 +19,6 @@ export function createServer(name, ownerId) {
     createdAt: Date.now()
   };
   
-  // Создаём стандартные каналы
   server.channels.push({
     id: `channel_${nextChannelId++}`,
     name: 'Общий',
@@ -34,6 +34,11 @@ export function createServer(name, ownerId) {
   
   servers.set(id, server);
   return server;
+}
+
+// Получить сервер по ID
+export function getServer(serverId) {
+  return servers.get(serverId);
 }
 
 // Получить все сервера пользователя
@@ -56,7 +61,9 @@ export function addUserToServer(serverId, userId) {
   const server = servers.get(serverId);
   if (server) {
     server.members.add(userId);
+    return true;
   }
+  return false;
 }
 
 export function handleServers(socket) {
@@ -88,7 +95,7 @@ export function handleServers(socket) {
     callback(userServers);
   });
   
-  // Присоединение к серверу
+  // Присоединение к серверу по ID (обычное)
   socket.on('join-server', ({ serverId }, callback) => {
     const user = getUser(socket.id);
     if (!user) return;
@@ -96,13 +103,97 @@ export function handleServers(socket) {
     socket.join(`server:${serverId}`);
     addUserToServer(serverId, user.id);
     
-    // Отправляем каналы сервера
     const server = servers.get(serverId);
     if (server) {
       socket.emit('server-channels', server.channels);
     }
     
     callback({ success: true });
+  });
+  
+  // === НОВОЕ: ПРИСОЕДИНЕНИЕ ПО ИНВАЙТУ ===
+  socket.on('join-server-by-invite', ({ code }, callback) => {
+    const user = getUser(socket.id);
+    if (!user) {
+      callback({ success: false, error: 'Пользователь не найден' });
+      return;
+    }
+    
+    const invite = getInvite(code);
+    if (!invite) {
+      callback({ success: false, error: 'Приглашение недействительно или истекло' });
+      return;
+    }
+    
+    const serverId = invite.serverId;
+    const server = servers.get(serverId);
+    
+    if (!server) {
+      callback({ success: false, error: 'Сервер не найден' });
+      return;
+    }
+    
+    // Если уже в сервере
+    if (server.members.has(user.id)) {
+      callback({ success: true, serverId, alreadyMember: true });
+      return;
+    }
+    
+    // Используем инвайт
+    useInvite(code);
+    
+    // Добавляем пользователя
+    server.members.add(user.id);
+    socket.join(`server:${serverId}`);
+    
+    // Оповещаем всех в сервере о новом участнике
+    io.to(`server:${serverId}`).emit('user-joined-server', {
+      userId: user.id,
+      nickname: user.nickname
+    });
+    
+    callback({ 
+      success: true, 
+      serverId, 
+      serverName: server.name,
+      channels: server.channels 
+    });
+  });
+  
+  // Создание инвайта
+  socket.on('create-invite', ({ serverId, maxUses, expiresInHours }, callback) => {
+    const user = getUser(socket.id);
+    if (!user) {
+      callback({ success: false, error: 'Пользователь не найден' });
+      return;
+    }
+    
+    const server = servers.get(serverId);
+    if (!server || server.ownerId !== user.id) {
+      callback({ success: false, error: 'Только владелец сервера может создавать приглашения' });
+      return;
+    }
+    
+    const invite = createInvite(serverId, user.id, maxUses, expiresInHours);
+    callback({ success: true, inviteUrl: invite.inviteUrl, code: invite.code });
+  });
+  
+  // Получить все инвайты пользователя
+  socket.on('get-user-invites', (callback) => {
+    const user = getUser(socket.id);
+    if (!user) return;
+    
+    const invites = getUserInvites(user.id);
+    callback(invites);
+  });
+  
+  // Удалить инвайт
+  socket.on('delete-invite', ({ code }, callback) => {
+    const user = getUser(socket.id);
+    if (!user) return;
+    
+    const success = deleteInvite(code, user.id);
+    callback({ success });
   });
   
   // Создание канала в сервере
@@ -124,10 +215,7 @@ export function handleServers(socket) {
     };
     
     server.channels.push(newChannel);
-    
-    // Оповещаем всех в сервере
     io.to(`server:${serverId}`).emit('channel-created', newChannel);
-    
     callback({ success: true, channel: newChannel });
   });
 }

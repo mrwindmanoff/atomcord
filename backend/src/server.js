@@ -20,4 +20,20 @@ const io = new Server(httpServer, {
   }
 });
 
+// В конец файла, перед экспортом
+app.get('/api/invite/:code', (req, res) => {
+  const { getInvite, getServer } = require('./store/invites.js');
+  const invite = getInvite(req.params.code);
+  
+  if (!invite) {
+    return res.json({ valid: false });
+  }
+  
+  const server = getServer(invite.serverId);
+  res.json({
+    valid: true,
+    serverId: invite.serverId,
+    serverName: server?.name || 'Unknown'
+  });
+});
 export { app, httpServer, io };
