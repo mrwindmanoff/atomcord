@@ -6,7 +6,6 @@ let currentUser = null;
 let socket = null;
 let currentChannel = { id: 'general', name: 'Общий', type: 'text' };
 let messagesCache = {};
-let onlineUsers = [];
 
 const app = document.getElementById('app');
 
@@ -38,8 +37,8 @@ function renderLogin() {
         <div class="login-logo">⚛️</div>
         <h1>AtomCord</h1>
         <p class="login-subtitle">Голосовой штаб</p>
-        <input type="text" id="nickname" class="login-input" placeholder="Никнейм">
-        <input type="password" id="password" class="login-input" placeholder="Пароль">
+        <input type="text" id="nickname" class="login-input" placeholder="Никнейм" autocomplete="off">
+        <input type="password" id="password" class="login-input" placeholder="Пароль" autocomplete="off">
         <button id="login-btn" class="login-button">Войти</button>
         <button id="register-btn" class="login-button secondary">Создать аккаунт</button>
         <div id="error" class="error-msg"></div>
@@ -53,8 +52,13 @@ function renderLogin() {
   const registerBtn = document.getElementById('register-btn');
   const errorDiv = document.getElementById('error');
   
-  // ПРИНУДИТЕЛЬНЫЙ ФОКУС
-  setTimeout(() => nicknameInput?.focus(), 100);
+  // Принудительный фокус
+  setTimeout(() => {
+    if (nicknameInput) {
+      nicknameInput.focus();
+      console.log('✅ Фокус на поле никнейма');
+    }
+  }, 200);
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -76,14 +80,20 @@ function renderLogin() {
     }
     
     loginBtn.disabled = true;
+    registerBtn.disabled = true;
     loginBtn.textContent = mode === 'login' ? '⏳ Вход...' : '⏳ Регистрация...';
     
     if (socket) socket.disconnect();
     
-    socket = io(SERVER_URL, { transports: ['websocket', 'polling'] });
+    socket = io(SERVER_URL, { 
+      transports: ['websocket', 'polling'],
+      reconnection: true
+    });
     
     socket.on('connect', () => {
+      console.log('✅ Сокет подключен');
       socket.emit(mode, { nickname, password }, (response) => {
+        console.log('Ответ сервера:', response);
         if (response?.success) {
           currentUser = { nickname, userId: response.userId };
           saveUser({ nickname });
@@ -91,22 +101,30 @@ function renderLogin() {
         } else {
           showError(response?.error || 'Ошибка');
           loginBtn.disabled = false;
+          registerBtn.disabled = false;
           loginBtn.textContent = mode === 'login' ? 'Войти' : 'Создать аккаунт';
         }
       });
     });
     
-    socket.on('connect_error', () => {
+    socket.on('connect_error', (err) => {
+      console.error('Ошибка подключения:', err);
       showError('Сервер не отвечает');
       loginBtn.disabled = false;
+      registerBtn.disabled = false;
       loginBtn.textContent = mode === 'login' ? 'Войти' : 'Создать аккаунт';
     });
   };
   
   loginBtn.onclick = () => handleAuth('login');
   registerBtn.onclick = () => handleAuth('register');
-  nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleAuth('login');
-  passwordInput.onkeypress = (e) => e.key === 'Enter' && handleAuth('login');
+  
+  nicknameInput.onkeypress = (e) => {
+    if (e.key === 'Enter') handleAuth('login');
+  };
+  passwordInput.onkeypress = (e) => {
+    if (e.key === 'Enter') handleAuth('login');
+  };
 }
 
 // ========== ОСНОВНОЙ ЧАТ ==========
@@ -132,19 +150,19 @@ function renderMainApp() {
         <div class="chat-header">
           <h2 id="channel-name"># general</h2>
         </div>
-        <div class="messages-container" id="messages-container"></div>
-        <div class="message-input-area" id="message-input-area">
-          <!-- Старый инпут не используем -->
+        <div class="messages-container" id="messages-container">
+          <div class="empty-messages">Загрузка сообщений...</div>
         </div>
+        <div class="message-input-area" id="message-input-area"></div>
       </div>
     </div>
   `;
   
-  // СОЗДАЁМ НОВЫЙ ИНПУТ ПРЯМО ЗДЕСЬ (гарантированно работает)
+  // СОЗДАЁМ ИНПУТ
   const inputArea = document.getElementById('message-input-area');
   if (inputArea) {
     inputArea.innerHTML = `
-      <input type="text" id="message-input" class="message-input" placeholder="Введите сообщение..." autocomplete="off" style="pointer-events:auto; opacity:1; z-index:9999;">
+      <input type="text" id="message-input" class="message-input" placeholder="Введите сообщение..." autocomplete="off">
       <button id="send-btn" class="send-btn">📤</button>
     `;
   }
@@ -152,74 +170,108 @@ function renderMainApp() {
   const messageInput = document.getElementById('message-input');
   const sendBtn = document.getElementById('send-btn');
   
+  // НАСТРОЙКА ИНПУТА
   if (messageInput) {
-    // Принудительно снимаем блокировки
-    messageInput.style.pointerEvents = 'auto';
+    // Снимаем все блокировки
     messageInput.disabled = false;
     messageInput.readOnly = false;
+    messageInput.tabIndex = 0;
     
-    messageInput.onkeypress = (e) => {
+    // Обработчик ввода
+    messageInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        e.stopPropagation();
         const text = messageInput.value.trim();
-        if (text) {
+        if (text && socket) {
           socket.emit('send-message', { channelId: 'general', text });
           messageInput.value = '';
         }
       }
+    });
+    
+    // Дополнительная проверка на клик
+    messageInput.addEventListener('click', () => {
+      console.log('Инпут кликнут');
+    });
+    
+    messageInput.addEventListener('focus', () => {
+      console.log('✅ Инпут в фокусе');
+    });
+    
+    // МНОГОКРАТНЫЙ ПРИНУДИТЕЛЬНЫЙ ФОКУС
+    const focusInput = () => {
+      messageInput.focus();
     };
     
-    // Фокус с задержкой
-    setTimeout(() => {
-      messageInput.focus();
-      console.log('✅ Инпут создан и сфокусирован');
-    }, 100);
+    setTimeout(focusInput, 100);
+    setTimeout(focusInput, 500);
+    setTimeout(focusInput, 1000);
   }
   
   if (sendBtn) {
-    sendBtn.onclick = () => {
+    sendBtn.addEventListener('click', () => {
       const text = messageInput?.value.trim();
-      if (text) {
+      if (text && socket) {
         socket.emit('send-message', { channelId: 'general', text });
         if (messageInput) messageInput.value = '';
         messageInput?.focus();
       }
-    };
+    });
   }
   
-  // Остальные обработчики...
-  document.getElementById('logout-btn')?.addEventListener('click', () => {
-    socket.disconnect();
-    clearSavedUser();
-    renderLogin();
-  });
+  // Выход
+  const logoutBtn = document.getElementById('logout-btn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      if (socket) socket.disconnect();
+      clearSavedUser();
+      renderLogin();
+    });
+  }
   
-  socket.emit('join-text-channel', 'general');
-  
-  socket.on('channel-history', ({ messages }) => {
-    const container = document.getElementById('messages-container');
-    if (container) {
-      if (!messages.length) {
-        container.innerHTML = '<div class="empty-messages">Нет сообщений</div>';
-      } else {
-        container.innerHTML = messages.map(msg => `
-          <div class="message"><strong>${escapeHtml(msg.nickname)}</strong> ${escapeHtml(msg.text)}</div>
-        `).join('');
-        container.scrollTop = container.scrollHeight;
+  // Загружаем историю
+  if (socket) {
+    socket.emit('join-text-channel', 'general');
+    
+    // Убираем старые обработчики, чтобы не дублировать
+    socket.off('channel-history');
+    socket.off('new-message');
+    
+    socket.on('channel-history', ({ messages }) => {
+      const container = document.getElementById('messages-container');
+      if (container) {
+        if (!messages || messages.length === 0) {
+          container.innerHTML = '<div class="empty-messages">Нет сообщений. Напишите первым!</div>';
+        } else {
+          container.innerHTML = messages.map(msg => `
+            <div class="message">
+              <strong style="color:#b392f0;">${escapeHtml(msg.nickname)}</strong>
+              <span>${escapeHtml(msg.text)}</span>
+            </div>
+          `).join('');
+          container.scrollTop = container.scrollHeight;
+        }
       }
-    }
-  });
-  
-  socket.on('new-message', (message) => {
-    const container = document.getElementById('messages-container');
-    if (container && message.channelId === 'general') {
-      const msgDiv = document.createElement('div');
-      msgDiv.className = 'message';
-      msgDiv.innerHTML = `<strong>${escapeHtml(message.nickname)}</strong> ${escapeHtml(message.text)}`;
-      container.appendChild(msgDiv);
-      container.scrollTop = container.scrollHeight;
-    }
-  });
+    });
+    
+    socket.on('new-message', (message) => {
+      if (message.channelId === 'general') {
+        const container = document.getElementById('messages-container');
+        if (container) {
+          const msgDiv = document.createElement('div');
+          msgDiv.className = 'message';
+          msgDiv.innerHTML = `<strong style="color:#b392f0;">${escapeHtml(message.nickname)}</strong> <span>${escapeHtml(message.text)}</span>`;
+          container.appendChild(msgDiv);
+          container.scrollTop = container.scrollHeight;
+          
+          // Удаляем заглушку если была
+          const empty = container.querySelector('.empty-messages');
+          if (empty) empty.remove();
+        }
+      }
+    });
+  }
 }
 
 function escapeHtml(str) {
@@ -236,11 +288,18 @@ if (savedUser?.nickname) {
   socket = io(SERVER_URL, { transports: ['websocket', 'polling'] });
   socket.on('connect', () => {
     socket.emit('login', { nickname: currentUser.nickname, password: '' }, (res) => {
-      if (res?.success) renderMainApp();
-      else renderLogin();
+      if (res?.success) {
+        renderMainApp();
+      } else {
+        clearSavedUser();
+        renderLogin();
+      }
     });
   });
-  socket.on('connect_error', () => renderLogin());
+  socket.on('connect_error', () => {
+    clearSavedUser();
+    renderLogin();
+  });
 } else {
   renderLogin();
 }
