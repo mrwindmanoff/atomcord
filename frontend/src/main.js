@@ -61,17 +61,16 @@ function renderLogin() {
   const registerBtn = document.getElementById('go-to-register-btn');
   const errorDiv = document.getElementById('error');
   
-  // ПРИНУДИТЕЛЬНЫЙ ФОКУС (как в прошлый раз работало)
   const setFocus = () => {
     if (nicknameInput) {
       nicknameInput.focus();
       console.log('✅ Фокус на nicknameInput');
     }
   };
-  
   setTimeout(setFocus, 100);
   setTimeout(setFocus, 300);
   setTimeout(setFocus, 500);
+  setTimeout(setFocus, 1000);
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -85,10 +84,12 @@ function renderLogin() {
     
     if (nickname.length < 2) {
       showError('Никнейм минимум 2 символа');
+      nicknameInput.focus();
       return;
     }
     if (password.length < 4) {
       showError('Пароль минимум 4 символа');
+      passwordInput.focus();
       return;
     }
     
@@ -124,21 +125,11 @@ function renderLogin() {
   
   loginBtn.onclick = handleLogin;
   registerBtn.onclick = () => renderRegister();
-  
-  // Локальный обработчик Enter (без глобального)
-  if (nicknameInput) {
-    nicknameInput.onkeypress = (e) => {
-      if (e.key === 'Enter') handleLogin();
-    };
-  }
-  if (passwordInput) {
-    passwordInput.onkeypress = (e) => {
-      if (e.key === 'Enter') handleLogin();
-    };
-  }
+  nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
+  passwordInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
 }
 
-// ========== СТРАНИЦА РЕГИСТРАЦИИ ==========
+// ========== СТРАНИЦА РЕГИСТРАЦИИ (С ФОКУСОМ) ==========
 function renderRegister() {
   app.innerHTML = `
     <div class="login-screen">
@@ -165,7 +156,7 @@ function renderRegister() {
   const backBtn = document.getElementById('back-to-login-btn');
   const errorDiv = document.getElementById('error');
   
-  // ===== МНОЖЕСТВЕННЫЙ ПРИНУДИТЕЛЬНЫЙ ФОКУС (как в логине) =====
+  // МНОЖЕСТВЕННЫЙ ПРИНУДИТЕЛЬНЫЙ ФОКУС
   const setFocus = () => {
     if (nicknameInput) {
       nicknameInput.focus();
@@ -237,7 +228,6 @@ function renderRegister() {
   registerBtn.onclick = handleRegister;
   backBtn.onclick = renderLogin;
   
-  // Локальные обработчики Enter
   nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
   passwordInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
   confirmInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
@@ -279,7 +269,6 @@ function renderMainApp() {
     </div>
   `;
   
-  // === СОЗДАЁМ ИНПУТ С ПРИНУДИТЕЛЬНЫМ ФОКУСОМ ===
   const inputArea = document.getElementById('message-input-area');
   if (inputArea) {
     inputArea.innerHTML = `
@@ -295,7 +284,6 @@ function renderMainApp() {
     messageInput.disabled = false;
     messageInput.readOnly = false;
     
-    // МНОГОКРАТНЫЙ ПРИНУДИТЕЛЬНЫЙ ФОКУС (как в прошлый раз сработало)
     const setFocus = () => {
       messageInput.focus();
       console.log('✅ Фокус на messageInput');
@@ -305,7 +293,6 @@ function renderMainApp() {
     setTimeout(setFocus, 1000);
     setTimeout(setFocus, 2000);
     
-    // Локальный обработчик клавиш (без глобального)
     messageInput.onkeypress = (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -330,7 +317,6 @@ function renderMainApp() {
     };
   }
   
-  // === ПЕРЕКЛЮЧЕНИЕ КАНАЛОВ ===
   document.querySelectorAll('.channel').forEach(el => {
     el.onclick = () => {
       const channelId = el.dataset.channel;
@@ -346,7 +332,6 @@ function renderMainApp() {
     };
   });
   
-  // === ВЫХОД ===
   const logoutBtn = document.getElementById('logout-btn');
   if (logoutBtn) {
     logoutBtn.onclick = () => {
@@ -356,7 +341,6 @@ function renderMainApp() {
     };
   }
   
-  // === СОКЕТ СОБЫТИЯ ===
   if (socket) {
     socket.emit('join-text-channel', 'general');
     
