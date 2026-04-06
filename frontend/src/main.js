@@ -5,7 +5,6 @@ const SERVER_URL = 'https://atomcord-backend.onrender.com';
 let currentUser = null;
 let socket = null;
 
-// DOM элементы
 const app = document.getElementById('app');
 
 function saveUser(user) {
@@ -28,7 +27,7 @@ function clearSavedUser() {
   localStorage.removeItem('atomcord_user');
 }
 
-// Рендер страницы входа
+// ========== СТРАНИЦА ВХОДА ==========
 function renderLogin() {
   app.innerHTML = `
     <div class="login-screen">
@@ -37,24 +36,22 @@ function renderLogin() {
         <h1>AtomCord</h1>
         <p class="login-subtitle">Голосовой штаб нового поколения</p>
         
-        <input type="text" id="nickname" class="login-input" placeholder="Никнейм" autocomplete="off">
-        <input type="password" id="password" class="login-input" placeholder="Пароль" autocomplete="off">
+        <input type="text" id="login-nickname" class="login-input" placeholder="Никнейм" autocomplete="off">
+        <input type="password" id="login-password" class="login-input" placeholder="Пароль" autocomplete="off">
         
-        <button id="login-btn" class="login-button">Войти</button>
-        <button id="register-btn" class="login-button secondary">📝 Создать аккаунт</button>
+        <button id="do-login-btn" class="login-button">Войти</button>
+        <button id="go-to-register-btn" class="login-button secondary">📝 Создать аккаунт</button>
         
-        <div id="error-msg" class="error-msg"></div>
+        <div id="login-error" class="error-msg"></div>
       </div>
     </div>
   `;
   
-  const nicknameInput = document.getElementById('nickname');
-  const passwordInput = document.getElementById('password');
-  const loginBtn = document.getElementById('login-btn');
-  const registerBtn = document.getElementById('register-btn');
-  const errorDiv = document.getElementById('error-msg');
-  
-  let loading = false;
+  const nicknameInput = document.getElementById('login-nickname');
+  const passwordInput = document.getElementById('login-password');
+  const loginBtn = document.getElementById('do-login-btn');
+  const registerBtn = document.getElementById('go-to-register-btn');
+  const errorDiv = document.getElementById('login-error');
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -64,9 +61,7 @@ function renderLogin() {
     }, 3000);
   };
   
-  const handleAuth = async (mode) => {
-    if (loading) return;
-    
+  const handleLogin = async () => {
     const nickname = nicknameInput.value.trim();
     const password = passwordInput.value;
     
@@ -80,13 +75,10 @@ function renderLogin() {
       return;
     }
     
-    loading = true;
     loginBtn.disabled = true;
-    registerBtn.disabled = true;
-    loginBtn.textContent = mode === 'login' ? '⏳ Вход...' : '⏳ Регистрация...';
+    loginBtn.textContent = '⏳ Вход...';
     errorDiv.style.display = 'none';
     
-    // Подключаемся к серверу
     if (socket) socket.disconnect();
     
     socket = io(SERVER_URL, {
@@ -95,57 +87,151 @@ function renderLogin() {
     });
     
     socket.on('connect', () => {
-      console.log('✅ Подключен к серверу');
-      
-      socket.emit(mode, { nickname, password }, (response) => {
-        console.log('Ответ:', response);
-        
+      socket.emit('login', { nickname, password }, (response) => {
         if (response && response.success) {
           currentUser = { nickname, userId: response.userId };
           saveUser({ nickname });
           renderMainApp();
         } else {
-          showError(response?.error || 'Ошибка');
+          showError(response?.error || 'Ошибка входа');
           loginBtn.disabled = false;
-          registerBtn.disabled = false;
           loginBtn.textContent = 'Войти';
-          registerBtn.textContent = '📝 Создать аккаунт';
         }
-        loading = false;
       });
     });
     
     socket.on('connect_error', () => {
       showError('Не удалось подключиться к серверу');
       loginBtn.disabled = false;
-      registerBtn.disabled = false;
       loginBtn.textContent = 'Войти';
-      registerBtn.textContent = '📝 Создать аккаунт';
-      loading = false;
     });
   };
   
-  loginBtn.onclick = () => handleAuth('login');
-  registerBtn.onclick = () => handleAuth('register');
+  loginBtn.onclick = handleLogin;
+  registerBtn.onclick = () => renderRegister();
   
   nicknameInput.onkeypress = (e) => {
-    if (e.key === 'Enter') handleAuth('login');
+    if (e.key === 'Enter') handleLogin();
   };
   passwordInput.onkeypress = (e) => {
-    if (e.key === 'Enter') handleAuth('login');
+    if (e.key === 'Enter') handleLogin();
   };
   
   nicknameInput.focus();
 }
 
-// Рендер основного приложения (упрощённая версия)
+// ========== СТРАНИЦА РЕГИСТРАЦИИ ==========
+function renderRegister() {
+  app.innerHTML = `
+    <div class="login-screen">
+      <div class="login-card">
+        <div class="login-logo">⚛️</div>
+        <h1>Создать аккаунт</h1>
+        <p class="login-subtitle">Присоединяйся к атомному штабу</p>
+        
+        <input type="text" id="reg-nickname" class="login-input" placeholder="Никнейм" autocomplete="off">
+        <input type="password" id="reg-password" class="login-input" placeholder="Пароль" autocomplete="off">
+        <input type="password" id="reg-confirm" class="login-input" placeholder="Подтвердите пароль" autocomplete="off">
+        
+        <button id="do-register-btn" class="login-button">Зарегистрироваться</button>
+        <button id="back-to-login-btn" class="login-button secondary">← Назад к входу</button>
+        
+        <div id="reg-error" class="error-msg"></div>
+      </div>
+    </div>
+  `;
+  
+  const nicknameInput = document.getElementById('reg-nickname');
+  const passwordInput = document.getElementById('reg-password');
+  const confirmInput = document.getElementById('reg-confirm');
+  const registerBtn = document.getElementById('do-register-btn');
+  const backBtn = document.getElementById('back-to-login-btn');
+  const errorDiv = document.getElementById('reg-error');
+  
+  const showError = (msg) => {
+    errorDiv.textContent = msg;
+    errorDiv.style.display = 'block';
+    setTimeout(() => {
+      errorDiv.style.display = 'none';
+    }, 3000);
+  };
+  
+  const handleRegister = async () => {
+    const nickname = nicknameInput.value.trim();
+    const password = passwordInput.value;
+    const confirm = confirmInput.value;
+    
+    if (nickname.length < 2) {
+      showError('Никнейм минимум 2 символа');
+      return;
+    }
+    
+    if (password.length < 4) {
+      showError('Пароль минимум 4 символа');
+      return;
+    }
+    
+    if (password !== confirm) {
+      showError('Пароли не совпадают');
+      return;
+    }
+    
+    registerBtn.disabled = true;
+    registerBtn.textContent = '⏳ Регистрация...';
+    errorDiv.style.display = 'none';
+    
+    if (socket) socket.disconnect();
+    
+    socket = io(SERVER_URL, {
+      transports: ['websocket', 'polling'],
+      reconnection: true
+    });
+    
+    socket.on('connect', () => {
+      socket.emit('register', { nickname, password }, (response) => {
+        if (response && response.success) {
+          currentUser = { nickname, userId: response.userId };
+          saveUser({ nickname });
+          renderMainApp();
+        } else {
+          showError(response?.error || 'Ошибка регистрации');
+          registerBtn.disabled = false;
+          registerBtn.textContent = 'Зарегистрироваться';
+        }
+      });
+    });
+    
+    socket.on('connect_error', () => {
+      showError('Не удалось подключиться к серверу');
+      registerBtn.disabled = false;
+      registerBtn.textContent = 'Зарегистрироваться';
+    });
+  };
+  
+  registerBtn.onclick = handleRegister;
+  backBtn.onclick = renderLogin;
+  
+  nicknameInput.onkeypress = (e) => {
+    if (e.key === 'Enter') handleRegister();
+  };
+  passwordInput.onkeypress = (e) => {
+    if (e.key === 'Enter') handleRegister();
+  };
+  confirmInput.onkeypress = (e) => {
+    if (e.key === 'Enter') handleRegister();
+  };
+  
+  nicknameInput.focus();
+}
+
+// ========== ОСНОВНОЕ ПРИЛОЖЕНИЕ ==========
 function renderMainApp() {
   app.innerHTML = `
     <div style="display:flex; height:100vh;">
       <div style="width:260px; background:#1a1a2a; border-right:1px solid #2a2a3a; display:flex; flex-direction:column;">
         <div style="padding:20px; border-bottom:1px solid #2a2a3a;">
           <div style="font-size:20px; font-weight:bold;">⚛️ AtomCord</div>
-          <div style="font-size:12px; color:#888; margin-top:8px;">${currentUser.nickname}</div>
+          <div style="font-size:12px; color:#888; margin-top:8px;">${escapeHtml(currentUser.nickname)}</div>
         </div>
         <div style="padding:16px; flex:1;">
           <div style="color:#888; font-size:12px; margin-bottom:10px;">ТЕКСТОВЫЕ КАНАЛЫ</div>
@@ -202,7 +288,6 @@ function renderMainApp() {
     renderLogin();
   };
   
-  // Загрузка сообщений
   function loadMessages(channelId) {
     socket.emit('join-text-channel', channelId);
   }
@@ -211,14 +296,15 @@ function renderMainApp() {
   socket.on('channel-history', ({ channelId, messages }) => {
     if (currentChannel === channelId) {
       const container = document.getElementById('messages-container');
-      container.innerHTML = messages.map(msg => `
-        <div style="margin-bottom:12px;">
-          <strong style="color:#b392f0;">${escapeHtml(msg.nickname)}</strong>
-          <span style="margin-left:8px;">${escapeHtml(msg.text)}</span>
-        </div>
-      `).join('');
       if (messages.length === 0) {
         container.innerHTML = '<div style="color:#888; text-align:center;">Нет сообщений. Напишите первым!</div>';
+      } else {
+        container.innerHTML = messages.map(msg => `
+          <div style="margin-bottom:12px;">
+            <strong style="color:#b392f0;">${escapeHtml(msg.nickname)}</strong>
+            <span style="margin-left:8px;">${escapeHtml(msg.text)}</span>
+          </div>
+        `).join('');
       }
       container.scrollTop = container.scrollHeight;
     }
@@ -235,7 +321,6 @@ function renderMainApp() {
     }
   });
   
-  // Присоединяемся к первому каналу
   loadMessages('general');
 }
 
@@ -245,10 +330,9 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// Запуск
+// ========== ЗАПУСК ==========
 const savedUser = getSavedUser();
 if (savedUser && savedUser.nickname) {
-  // Пытаемся восстановить сессию
   currentUser = savedUser;
   renderMainApp();
 } else {
