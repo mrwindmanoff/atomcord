@@ -36,51 +36,6 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// ===== ВЕЧНЫЙ ФИКС КЛАВИАТУРЫ =====
-function fixAllInputs() {
-  const inputs = document.querySelectorAll('input, textarea');
-  inputs.forEach(input => {
-    if (input.hasAttribute('data-fixed')) return;
-    
-    // Сохраняем значение и атрибуты
-    const value = input.value;
-    const id = input.id;
-    const className = input.className;
-    const placeholder = input.placeholder;
-    const inputType = input.type;
-    
-    // Создаём новый элемент
-    const newInput = document.createElement(input.tagName);
-    newInput.id = id;
-    newInput.className = className;
-    newInput.placeholder = placeholder;
-    if (inputType) newInput.type = inputType;
-    newInput.value = value;
-    newInput.autocomplete = 'off';
-    
-    // Копируем все data-атрибуты
-    for (let attr of input.attributes) {
-      if (attr.name.startsWith('data-')) {
-        newInput.setAttribute(attr.name, attr.value);
-      }
-    }
-    
-    // Жёсткие стили для гарантии работы
-    newInput.style.cssText = `
-      pointer-events: auto !important;
-      user-select: text !important;
-      -webkit-user-select: text !important;
-      opacity: 1 !important;
-      visibility: visible !important;
-    `;
-    
-    newInput.setAttribute('data-fixed', 'true');
-    
-    // Заменяем старый элемент новым
-    input.parentNode.replaceChild(newInput, input);
-  });
-}
-
 // ========== СТРАНИЦА ВХОДА ==========
 function renderLogin() {
   app.innerHTML = `
@@ -100,47 +55,39 @@ function renderLogin() {
     </div>
   `;
   
-  setTimeout(() => fixAllInputs(), 50);
-  setTimeout(() => fixAllInputs(), 200);
-  setTimeout(() => fixAllInputs(), 500);
+  const nicknameInput = document.getElementById('nickname');
+  const passwordInput = document.getElementById('password');
+  const loginBtn = document.getElementById('login-btn');
+  const registerBtn = document.getElementById('go-to-register-btn');
+  const errorDiv = document.getElementById('error');
   
-  const setFocus = () => {
-    const nick = document.getElementById('nickname');
-    if (nick) nick.focus();
-  };
-  setTimeout(setFocus, 100);
-  setTimeout(setFocus, 300);
-  setTimeout(setFocus, 600);
+  // ПРОСТОЙ ФОКУС
+  setTimeout(() => nicknameInput?.focus(), 100);
+  setTimeout(() => nicknameInput?.focus(), 300);
   
   const showError = (msg) => {
-    const errDiv = document.getElementById('error');
-    if (errDiv) {
-      errDiv.textContent = msg;
-      errDiv.style.display = 'block';
-      setTimeout(() => errDiv.style.display = 'none', 3000);
-    }
+    errorDiv.textContent = msg;
+    errorDiv.style.display = 'block';
+    setTimeout(() => errorDiv.style.display = 'none', 3000);
   };
   
   const handleLogin = () => {
-    const nickname = document.getElementById('nickname')?.value.trim() || '';
-    const password = document.getElementById('password')?.value || '';
+    const nickname = nicknameInput.value.trim();
+    const password = passwordInput.value;
     
     if (nickname.length < 2) {
       showError('Никнейм минимум 2 символа');
-      document.getElementById('nickname')?.focus();
+      nicknameInput.focus();
       return;
     }
     if (password.length < 4) {
       showError('Пароль минимум 4 символа');
-      document.getElementById('password')?.focus();
+      passwordInput.focus();
       return;
     }
     
-    const loginBtn = document.getElementById('login-btn');
-    if (loginBtn) {
-      loginBtn.disabled = true;
-      loginBtn.textContent = '⏳ Вход...';
-    }
+    loginBtn.disabled = true;
+    loginBtn.textContent = '⏳ Вход...';
     
     if (socket) socket.disconnect();
     
@@ -154,43 +101,25 @@ function renderLogin() {
           renderMainApp();
         } else {
           showError(response?.error || 'Ошибка входа');
-          const btn = document.getElementById('login-btn');
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = 'Войти';
-          }
-          document.getElementById('nickname')?.focus();
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Войти';
+          nicknameInput.focus();
         }
       });
     });
     
     socket.on('connect_error', () => {
       showError('Сервер не отвечает');
-      const btn = document.getElementById('login-btn');
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'Войти';
-      }
-      document.getElementById('nickname')?.focus();
+      loginBtn.disabled = false;
+      loginBtn.textContent = 'Войти';
+      nicknameInput.focus();
     });
   };
   
-  const loginBtn = document.getElementById('login-btn');
-  const registerBtn = document.getElementById('go-to-register-btn');
-  
-  if (loginBtn) loginBtn.onclick = handleLogin;
-  if (registerBtn) registerBtn.onclick = () => renderRegister();
-  
-  const attachKeyHandler = () => {
-    const nick = document.getElementById('nickname');
-    const pass = document.getElementById('password');
-    if (nick) nick.onkeypress = (e) => e.key === 'Enter' && handleLogin();
-    if (pass) pass.onkeypress = (e) => e.key === 'Enter' && handleLogin();
-  };
-  
-  attachKeyHandler();
-  setTimeout(attachKeyHandler, 100);
-  setTimeout(attachKeyHandler, 300);
+  loginBtn.onclick = handleLogin;
+  registerBtn.onclick = () => renderRegister();
+  nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
+  passwordInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
 }
 
 // ========== СТРАНИЦА РЕГИСТРАЦИИ ==========
@@ -213,85 +142,46 @@ function renderRegister() {
     </div>
   `;
   
-  // Функция обновления ссылок после фикса
-  const getElements = () => {
-    return {
-      nicknameInput: document.getElementById('reg-nickname'),
-      passwordInput: document.getElementById('reg-password'),
-      confirmInput: document.getElementById('reg-confirm'),
-      registerBtn: document.getElementById('register-btn'),
-      backBtn: document.getElementById('back-to-login-btn'),
-      errorDiv: document.getElementById('error')
-    };
-  };
+  const nicknameInput = document.getElementById('reg-nickname');
+  const passwordInput = document.getElementById('reg-password');
+  const confirmInput = document.getElementById('reg-confirm');
+  const registerBtn = document.getElementById('register-btn');
+  const backBtn = document.getElementById('back-to-login-btn');
+  const errorDiv = document.getElementById('error');
   
-  // ВЕЧНЫЙ ФИКС с обновлением ссылок
-  setTimeout(() => {
-    fixAllInputs();
-    const els = getElements();
-    if (els.nicknameInput) els.nicknameInput.focus();
-  }, 50);
-  setTimeout(() => {
-    fixAllInputs();
-    const els = getElements();
-    if (els.nicknameInput) els.nicknameInput.focus();
-  }, 200);
-  setTimeout(() => {
-    fixAllInputs();
-    const els = getElements();
-    if (els.nicknameInput) els.nicknameInput.focus();
-  }, 500);
-  
-  // Получаем актуальные элементы после фикса
-  let { nicknameInput, passwordInput, confirmInput, registerBtn, backBtn, errorDiv } = getElements();
-  
-  const setFocus = () => {
-    const currentNick = document.getElementById('reg-nickname');
-    if (currentNick) currentNick.focus();
-  };
-  setTimeout(setFocus, 100);
-  setTimeout(setFocus, 300);
-  setTimeout(setFocus, 600);
-  setTimeout(setFocus, 1000);
+  setTimeout(() => nicknameInput?.focus(), 100);
+  setTimeout(() => nicknameInput?.focus(), 300);
+  setTimeout(() => nicknameInput?.focus(), 500);
   
   const showError = (msg) => {
-    const errDiv = document.getElementById('error');
-    if (errDiv) {
-      errDiv.textContent = msg;
-      errDiv.style.display = 'block';
-      setTimeout(() => errDiv.style.display = 'none', 3000);
-    }
+    errorDiv.textContent = msg;
+    errorDiv.style.display = 'block';
+    setTimeout(() => errorDiv.style.display = 'none', 3000);
   };
   
   const handleRegister = () => {
-    // ЗАНОВО получаем элементы каждый раз
-    const nickname = document.getElementById('reg-nickname')?.value.trim() || '';
-    const password = document.getElementById('reg-password')?.value || '';
-    const confirm = document.getElementById('reg-confirm')?.value || '';
-    
-    console.log('Проверка:', { nickname, password, confirm });
+    const nickname = nicknameInput.value.trim();
+    const password = passwordInput.value;
+    const confirm = confirmInput.value;
     
     if (nickname.length < 2) {
       showError('Никнейм минимум 2 символа');
-      document.getElementById('reg-nickname')?.focus();
+      nicknameInput.focus();
       return;
     }
     if (password.length < 4) {
       showError('Пароль минимум 4 символа');
-      document.getElementById('reg-password')?.focus();
+      passwordInput.focus();
       return;
     }
     if (password !== confirm) {
       showError('Пароли не совпадают');
-      document.getElementById('reg-confirm')?.focus();
+      confirmInput.focus();
       return;
     }
     
-    const regBtn = document.getElementById('register-btn');
-    if (regBtn) {
-      regBtn.disabled = true;
-      regBtn.textContent = '⏳ Регистрация...';
-    }
+    registerBtn.disabled = true;
+    registerBtn.textContent = '⏳ Регистрация...';
     
     if (socket) socket.disconnect();
     
@@ -305,45 +195,26 @@ function renderRegister() {
           renderMainApp();
         } else {
           showError(response?.error || 'Ошибка регистрации');
-          const btn = document.getElementById('register-btn');
-          if (btn) {
-            btn.disabled = false;
-            btn.textContent = 'Зарегистрироваться';
-          }
-          document.getElementById('reg-nickname')?.focus();
+          registerBtn.disabled = false;
+          registerBtn.textContent = 'Зарегистрироваться';
+          nicknameInput.focus();
         }
       });
     });
     
     socket.on('connect_error', () => {
       showError('Сервер не отвечает');
-      const btn = document.getElementById('register-btn');
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'Зарегистрироваться';
-      }
-      document.getElementById('reg-nickname')?.focus();
+      registerBtn.disabled = false;
+      registerBtn.textContent = 'Зарегистрироваться';
+      nicknameInput.focus();
     });
   };
   
-  // Привязываем события
-  if (registerBtn) registerBtn.onclick = handleRegister;
-  if (backBtn) backBtn.onclick = renderLogin;
-  
-  // Обработчики клавиш
-  const attachKeyHandler = () => {
-    const nick = document.getElementById('reg-nickname');
-    const pass = document.getElementById('reg-password');
-    const conf = document.getElementById('reg-confirm');
-    
-    if (nick) nick.onkeypress = (e) => e.key === 'Enter' && handleRegister();
-    if (pass) pass.onkeypress = (e) => e.key === 'Enter' && handleRegister();
-    if (conf) conf.onkeypress = (e) => e.key === 'Enter' && handleRegister();
-  };
-  
-  attachKeyHandler();
-  setTimeout(attachKeyHandler, 100);
-  setTimeout(attachKeyHandler, 300);
+  registerBtn.onclick = handleRegister;
+  backBtn.onclick = renderLogin;
+  nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
+  passwordInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
+  confirmInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
 }
 
 // ========== ОСНОВНОЙ ЧАТ ==========
@@ -390,29 +261,25 @@ function renderMainApp() {
     `;
   }
   
-  // ВЕЧНЫЙ ФИКС для инпута в чате
-  setTimeout(() => fixAllInputs(), 50);
-  setTimeout(() => fixAllInputs(), 200);
-  
   const messageInput = document.getElementById('message-input');
   const sendBtn = document.getElementById('send-btn');
   
   if (messageInput) {
-    const setFocus = () => messageInput.focus();
-    setTimeout(setFocus, 200);
-    setTimeout(setFocus, 500);
-    setTimeout(setFocus, 1000);
+    setTimeout(() => messageInput.focus(), 200);
+    setTimeout(() => messageInput.focus(), 500);
+    setTimeout(() => messageInput.focus(), 1000);
     
-    messageInput.addEventListener('keypress', (e) => {
+    messageInput.onkeypress = (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         const text = messageInput.value.trim();
         if (text && socket) {
           socket.emit('send-message', { channelId: currentChannel.id, text });
           messageInput.value = '';
+          messageInput.focus();
         }
       }
-    });
+    };
   }
   
   if (sendBtn) {
@@ -434,10 +301,7 @@ function renderMainApp() {
       currentChannel.id = channelId;
       currentChannel.name = channelName.replace(/[#🎙️]/g, '').trim();
       socket.emit('join-text-channel', channelId);
-      setTimeout(() => {
-        const input = document.getElementById('message-input');
-        if (input) input.focus();
-      }, 100);
+      setTimeout(() => document.getElementById('message-input')?.focus(), 100);
     };
   });
   
