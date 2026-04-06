@@ -59,7 +59,12 @@ function renderLogin() {
   const registerBtn = document.getElementById('go-to-register-btn');
   const errorDiv = document.getElementById('error');
   
-  setTimeout(() => nicknameInput?.focus(), 200);
+  // Фокус на поле ввода
+  const setFocus = () => {
+    if (nicknameInput) nicknameInput.focus();
+  };
+  setTimeout(setFocus, 100);
+  setTimeout(setFocus, 300);
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -139,7 +144,12 @@ function renderRegister() {
   const backBtn = document.getElementById('back-to-login-btn');
   const errorDiv = document.getElementById('error');
   
-  setTimeout(() => nicknameInput?.focus(), 200);
+  // Фокус на поле ввода
+  const setFocus = () => {
+    if (nicknameInput) nicknameInput.focus();
+  };
+  setTimeout(setFocus, 100);
+  setTimeout(setFocus, 300);
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -246,7 +256,8 @@ function renderMainApp() {
     messageInput.disabled = false;
     messageInput.readOnly = false;
     
-    messageInput.addEventListener('keypress', (e) => {
+    // Обработчик ввода
+    const onKeyPress = (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         const text = messageInput.value.trim();
@@ -255,10 +266,18 @@ function renderMainApp() {
           messageInput.value = '';
         }
       }
-    });
+    };
     
-    setTimeout(() => messageInput.focus(), 200);
-    setTimeout(() => messageInput.focus(), 500);
+    messageInput.addEventListener('keypress', onKeyPress);
+    
+    // Фокус на поле ввода
+    const setFocus = () => {
+      messageInput.focus();
+      console.log('✅ Фокус на поле ввода');
+    };
+    setTimeout(setFocus, 200);
+    setTimeout(setFocus, 500);
+    setTimeout(setFocus, 1000);
   }
   
   if (sendBtn) {
