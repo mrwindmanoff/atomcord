@@ -5,14 +5,72 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>AtomCord — Атомный голосовой штаб</title>
   <link rel="stylesheet" href="/src/style.css">
+  <style>
+    /* Дополнительные гарантии для полей ввода */
+    input, textarea {
+      -webkit-user-select: text !important;
+      user-select: text !important;
+      pointer-events: auto !important;
+    }
+  </style>
 </head>
 <body>
   <div id="app"></div>
   
-  <!-- ФИКС КЛАВИАТУРЫ (ПОДКЛЮЧАЕМ ПЕРВЫМ) -->
-  <script src="/src/fix.js"></script>
-  
-  <!-- ОСНОВНОЙ КОД -->
+  <!-- ОСНОВНОЙ КОД ВАШЕГО ПРИЛОЖЕНИЯ -->
   <script type="module" src="/src/main.js"></script>
+  
+  <!-- ВСТРОЕННЫЙ ФИКС КЛАВИАТУРЫ (РАБОТАЕТ ГАРАНТИРОВАННО) -->
+  <script>
+    (function fixKeyboard() {
+      console.log('🔧 [FIX] Запуск фикса клавиатуры...');
+
+      function recreateAllInputs() {
+        const inputs = document.querySelectorAll('input, textarea');
+        console.log(`[FIX] Найдено полей для фикса: ${inputs.length}`);
+        
+        inputs.forEach((oldInput) => {
+          try {
+            // Создаём новый элемент
+            const newInput = document.createElement(oldInput.tagName);
+            
+            // Копируем все атрибуты
+            for (let attr of oldInput.attributes) {
+              newInput.setAttribute(attr.name, attr.value);
+            }
+            
+            // Копируем классы и стили
+            newInput.className = oldInput.className;
+            
+            // Копируем значение
+            if (oldInput.value) newInput.value = oldInput.value;
+            
+            // Заменяем старый элемент новым
+            oldInput.parentNode.replaceChild(newInput, oldInput);
+          } catch(e) {
+            console.warn('[FIX] Ошибка при фиксе поля:', e);
+          }
+        });
+      }
+      
+      // Запускаем фикс несколько раз для страховки
+      setTimeout(recreateAllInputs, 100);
+      setTimeout(recreateAllInputs, 500);
+      setTimeout(recreateAllInputs, 1500);
+      
+      // Следим за появлением новых полей
+      const observer = new MutationObserver(() => {
+        recreateAllInputs();
+      });
+      
+      // Запускаем наблюдатель, когда страница загрузится
+      window.addEventListener('load', () => {
+        observer.observe(document.body, { childList: true, subtree: true });
+        console.log('[FIX] Наблюдатель за полями активирован');
+      });
+      
+      console.log('✅ [FIX] Фикс клавиатуры готов');
+    })();
+  </script>
 </body>
 </html>
