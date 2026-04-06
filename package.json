@@ -1,0 +1,16 @@
+{
+  "name": "atomcord",
+  "version": "0.2.0",
+  "description": "⚛️ AtomCord - голосовой штаб",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\" --kill-others-on-fail",
+    "server": "node backend/src/main.js",
+    "client": "vite frontend --host",
+    "install:all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "build": "cd frontend && npm run build"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "vite": "^5.0.0"
+  }
+}
