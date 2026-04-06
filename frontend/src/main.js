@@ -40,12 +40,14 @@ function handleAuth(nickname, password, savedToken, mode = 'login') {
   return new Promise((resolve, reject) => {
     // Если есть сохранённый токен, пробуем восстановить сессию
     if (savedToken) {
-      // TODO: проверить токен на сервере
       currentUser = { nickname, token: savedToken };
       render();
       resolve();
       return;
     }
+    
+    // Определяем событие в зависимости от режима
+    const eventName = mode === 'login' ? 'login' : 'register';
     
     socket = initSocket(nickname, password, (userData) => {
       currentUser = userData;
@@ -54,7 +56,7 @@ function handleAuth(nickname, password, savedToken, mode = 'login') {
       resolve();
     }, (error) => {
       reject(new Error(error));
-    });
+    }, eventName);
   });
 }
 
@@ -68,4 +70,5 @@ function handleLogout() {
   render();
 }
 
+// Запуск
 render();

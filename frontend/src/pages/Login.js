@@ -12,19 +12,6 @@ export const LoginPage = {
       } catch(e) {}
     }
     
-    let isLoginMode = true; // true = вход, false = регистрация
-    
-    function toggleMode() {
-      isLoginMode = !isLoginMode;
-      const title = document.getElementById('modal-title');
-      const submitBtn = document.getElementById('submit-btn');
-      const toggleBtn = document.getElementById('toggle-mode-btn');
-      
-      if (title) title.textContent = isLoginMode ? 'Вход в AtomCord' : 'Регистрация в AtomCord';
-      if (submitBtn) submitBtn.textContent = isLoginMode ? 'Войти' : 'Зарегистрироваться';
-      if (toggleBtn) toggleBtn.textContent = isLoginMode ? 'Нет аккаунта? Зарегистрироваться' : 'Уже есть аккаунт? Войти';
-    }
-    
     container.innerHTML = `
       <div class="login-screen">
         <div class="login-card">
@@ -37,8 +24,8 @@ export const LoginPage = {
           <input type="text" id="nickname" class="login-input" placeholder="Никнейм" autocomplete="off">
           <input type="password" id="password" class="login-input" placeholder="Пароль" autocomplete="off">
           
-          <button id="submit-btn" class="login-button">Войти</button>
-          <button id="toggle-mode-btn" class="login-button toggle">Нет аккаунта? Зарегистрироваться</button>
+          <button id="login-btn" class="login-button">Войти</button>
+          <button id="go-to-register-btn" class="login-button secondary">Создать аккаунт</button>
           
           <div id="error-msg" style="color:#ed4245; margin-top:12px; font-size:12px; display:none;"></div>
         </div>
@@ -47,29 +34,13 @@ export const LoginPage = {
     
     const nicknameInput = document.getElementById('nickname');
     const passwordInput = document.getElementById('password');
-    const submitBtn = document.getElementById('submit-btn');
-    const toggleBtn = document.getElementById('toggle-mode-btn');
+    const loginBtn = document.getElementById('login-btn');
+    const registerBtn = document.getElementById('go-to-register-btn');
     const errorDiv = document.getElementById('error-msg');
     
     let loading = false;
     
-    // Добавляем стиль для кнопки переключения
-    const style = document.createElement('style');
-    style.textContent = `
-      .login-button.toggle {
-        background: transparent;
-        border: 1px solid var(--accent-primary);
-        margin-top: 8px;
-        color: var(--accent-primary);
-      }
-      .login-button.toggle:hover {
-        background: rgba(88, 101, 242, 0.1);
-        transform: none;
-      }
-    `;
-    document.head.appendChild(style);
-    
-    const handleSubmit = async () => {
+    const handleLogin = async () => {
       if (loading) return;
       
       const nickname = nicknameInput.value.trim();
@@ -88,34 +59,37 @@ export const LoginPage = {
       }
       
       loading = true;
-      submitBtn.disabled = true;
-      submitBtn.textContent = '⏳ Подключение...';
+      loginBtn.disabled = true;
+      loginBtn.textContent = '⏳ Вход...';
       errorDiv.style.display = 'none';
       
       try {
-        await onLogin(nickname, password, null, isLoginMode ? 'login' : 'register');
+        await onLogin(nickname, password, null, 'login');
       } catch (err) {
         errorDiv.textContent = err.message;
         errorDiv.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.textContent = isLoginMode ? 'Войти' : 'Зарегистрироваться';
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Войти';
         loading = false;
       }
     };
     
-    submitBtn.addEventListener('click', handleSubmit);
-    toggleBtn.addEventListener('click', () => {
-      toggleMode();
-      errorDiv.style.display = 'none';
-      nicknameInput.value = '';
-      passwordInput.value = '';
-    });
+    const goToRegister = () => {
+      // Импортируем и рендерим страницу регистрации
+      import('./Register.js').then(module => {
+        const RegisterPage = module.RegisterPage;
+        RegisterPage.render(container, onLogin);
+      });
+    };
+    
+    loginBtn.addEventListener('click', handleLogin);
+    registerBtn.addEventListener('click', goToRegister);
     
     nicknameInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') handleSubmit();
+      if (e.key === 'Enter') handleLogin();
     });
     passwordInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') handleSubmit();
+      if (e.key === 'Enter') handleLogin();
     });
     
     nicknameInput.focus();

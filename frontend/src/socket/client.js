@@ -1,63 +1,65 @@
 import { io } from 'socket.io-client';
 
-// ПРАВИЛЬНЫЙ URL для продакшена (твой бекенд на Render)
-// НЕ ИСПОЛЬЗУЙ localhost или относительные пути!
-const SERVER_URL = 'https://atomcord-backend.onrender.com';
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'https://atomcord-backend.onrender.com';
 
-console.log('🔌 Фронтенд пытается подключиться к:', SERVER_URL);
+console.log('🔌 Подключение к серверу:', SERVER_URL);
 
 let socket = null;
 
-export function initSocket(nickname, password, onSuccess, onError) {
-  if (socket?.connected) {
+export function initSocket(nickname, password, onSuccess, onError, mode = 'login') {
+  if (socket && socket.connected) {
     socket.disconnect();
   }
-
+  
   socket = io(SERVER_URL, {
-    transports: ['websocket', 'polling'], // Пробуем оба способа
+    transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
     timeout: 15000,
-    withCredentials: false,
-    path: '/socket.io/' // Явно указываем путь
+    withCredentials: false
   });
-
-  const timeoutId = setTimeout(() => {
-    console.error('❌ Таймаут подключения к бекенду');
-    onError?.('Сервер не отвечает. Проверь интернет.');
+  
+  const timeout = setTimeout(() => {
+    console.error('❌ Таймаут подключения');
+    if (onError) onError('Сервер не отвечает');
   }, 10000);
-
+  
   socket.on('connect', () => {
-    console.log('✅ Соединение с бекендом установлено! ID сокета:', socket.id);
-    clearTimeout(timeoutId);
+    console.log('✅ Сокет подключен к серверу, ID:', socket.id);
+    clearTimeout(timeout);
     
-    // Отправляем регистрацию
-    socket.emit('register', { nickname, password }, (response) => {
-      console.log('📝 Ответ от сервера при регистрации:', response);
-      if (response?.success) {
+    // Отправляем событие в зависимости от режима
+    const eventData = mode === 'login' 
+      ? { nickname, password }
+      : { nickname, password };
+    
+    socket.emit(mode, eventData, (response) => {
+      console.log(`📝 Ответ сервера (${mode}):`, response);
+      
+      if (response && response.success) {
         onSuccess({
           socketId: socket.id,
           nickname: response.nickname,
-          token: response.token
+          token: response.token,
+          userId: response.userId
         });
       } else {
-        onError?.(response?.error || 'Ошибка авторизации на сервере');
+        onError(response?.error || 'Ошибка авторизации');
       }
     });
   });
-
+  
   socket.on('connect_error', (error) => {
-    console.error('❌ Ошибка соединения WebSocket:', error.message);
-    clearTimeout(timeoutId);
-    onError?.(`Не могу подключиться к серверу: ${error.message}`);
+    console.error('❌ Ошибка подключения:', error.message);
+    clearTimeout(timeout);
+    onError('Не удалось подключиться к серверу');
   });
-
+  
   return socket;
 }
 
 export function getSocket() {
-  if (!socket) throw new Error('Сокет не инициализирован');
   return socket;
 }
 

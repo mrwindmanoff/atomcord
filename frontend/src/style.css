@@ -801,3 +801,15 @@ body {
     display: none;
   }
 }
+/* Кнопки на страницах входа/регистрации */
+.login-button.secondary {
+  background: transparent;
+  border: 1px solid var(--accent-primary);
+  margin-top: 8px;
+  color: var(--accent-primary);
+}
+
+.login-button.secondary:hover {
+  background: rgba(88, 101, 242, 0.1);
+  transform: none;
+}
