@@ -2,19 +2,14 @@
   "name": "atomcord-backend",
   "version": "0.1.0",
   "type": "module",
-  "description": "AtomCord backend server",
   "main": "src/main.js",
   "scripts": {
-    "start": "node src/main.js",
-    "dev": "nodemon src/main.js"
+    "start": "node src/main.js"
   },
   "dependencies": {
     "express": "^4.18.2",
     "socket.io": "^4.6.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1"
-  },
-  "devDependencies": {
-    "nodemon": "^3.0.2"
   }
 }
