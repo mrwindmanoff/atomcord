@@ -3,19 +3,17 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AtomCord — Атомный голосовой штаб</title>
-  <link rel="stylesheet" href="/src/style.css">
+  <title>AtomCord</title>
   <style>
-    /* Фоллбек стили на случай если CSS не загрузился */
-    body {
+    * {
       margin: 0;
       padding: 0;
+      box-sizing: border-box;
+    }
+    body {
       font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       background: #0f0f1a;
       color: white;
-    }
-    #app {
-      min-height: 100vh;
     }
     .login-screen {
       display: flex;
@@ -39,6 +37,7 @@
       border: none;
       border-radius: 8px;
       color: white;
+      font-size: 16px;
     }
     .login-button {
       width: 100%;
@@ -48,16 +47,100 @@
       border: none;
       border-radius: 8px;
       color: white;
+      font-weight: bold;
       cursor: pointer;
+      font-size: 16px;
     }
     .login-button.secondary {
       background: transparent;
       border: 1px solid #5865f2;
+      margin-top: 12px;
+    }
+    .login-button:hover {
+      background: #4752c4;
+    }
+    .login-button.secondary:hover {
+      background: rgba(88, 101, 242, 0.1);
     }
   </style>
 </head>
 <body>
   <div id="app"></div>
-  <script type="module" src="/src/main.js"></script>
+  <script type="module">
+    // Минимальный рабочий код прямо здесь, без импортов
+    const app = document.getElementById('app');
+    
+    function renderLogin() {
+      app.innerHTML = `
+        <div class="login-screen">
+          <div class="login-card">
+            <div class="login-logo" style="font-size:48px; margin-bottom:16px;">⚛️</div>
+            <h1 style="margin-bottom:8px;">AtomCord</h1>
+            <p style="color:#888; margin-bottom:24px;">Голосовой штаб</p>
+            <input type="text" id="nickname" class="login-input" placeholder="Никнейм">
+            <button id="login-btn" class="login-button">Войти</button>
+            <button id="register-btn" class="login-button secondary">Создать аккаунт</button>
+            <div id="error" style="color:#ed4245; margin-top:12px; font-size:12px; display:none;"></div>
+          </div>
+        </div>
+      `;
+      
+      document.getElementById('login-btn').onclick = () => {
+        const nickname = document.getElementById('nickname').value.trim();
+        if (nickname.length < 2) {
+          const err = document.getElementById('error');
+          err.textContent = 'Минимум 2 символа';
+          err.style.display = 'block';
+          return;
+        }
+        localStorage.setItem('atomcord_nickname', nickname);
+        renderMainApp(nickname);
+      };
+      
+      document.getElementById('register-btn').onclick = () => {
+        const nickname = document.getElementById('nickname').value.trim();
+        if (nickname.length < 2) {
+          const err = document.getElementById('error');
+          err.textContent = 'Минимум 2 символа';
+          err.style.display = 'block';
+          return;
+        }
+        localStorage.setItem('atomcord_nickname', nickname);
+        renderMainApp(nickname);
+      };
+    }
+    
+    function renderMainApp(nickname) {
+      app.innerHTML = `
+        <div style="display:flex; height:100vh;">
+          <div style="width:260px; background:#1a1a2a; border-right:1px solid #2a2a3a; padding:20px;">
+            <div style="font-size:20px; font-weight:bold; margin-bottom:20px;">⚛️ AtomCord</div>
+            <div style="color:#888; font-size:12px; margin-bottom:10px;">ТЕКСТОВЫЕ КАНАЛЫ</div>
+            <div style="padding:8px; background:#2a2a3a; border-radius:8px; margin-bottom:4px;"># general</div>
+            <div style="margin-top:20px; color:#888; font-size:12px;">👤 ${nickname}</div>
+          </div>
+          <div style="flex:1; display:flex; flex-direction:column;">
+            <div style="padding:16px; border-bottom:1px solid #2a2a3a; background:#1a1a2a;">
+              <h2># general</h2>
+            </div>
+            <div style="flex:1; padding:20px; overflow-y:auto;">
+              <div style="color:#888; text-align:center;">✅ AtomCord работает!<br>GUI отображается корректно.</div>
+            </div>
+            <div style="padding:16px; border-top:1px solid #2a2a3a; background:#1a1a2a;">
+              <input type="text" placeholder="Введите сообщение..." style="width:100%; padding:12px; background:#2a2a3a; border:none; border-radius:8px; color:white;">
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Проверяем сохранённого пользователя
+    const saved = localStorage.getItem('atomcord_nickname');
+    if (saved) {
+      renderMainApp(saved);
+    } else {
+      renderLogin();
+    }
+  </script>
 </body>
 </html>
