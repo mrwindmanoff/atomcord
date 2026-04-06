@@ -29,7 +29,7 @@ function clearSavedUser() {
   localStorage.removeItem('atomcord_user');
 }
 
-// ========== ВХОД ==========
+// ========== СТРАНИЦА ВХОДА ==========
 function renderLogin() {
   app.innerHTML = `
     <div class="login-screen">
@@ -40,7 +40,7 @@ function renderLogin() {
         <input type="text" id="nickname" class="login-input" placeholder="Никнейм" autocomplete="off">
         <input type="password" id="password" class="login-input" placeholder="Пароль" autocomplete="off">
         <button id="login-btn" class="login-button">Войти</button>
-        <button id="register-btn" class="login-button secondary">Создать аккаунт</button>
+        <button id="go-to-register-btn" class="login-button secondary">📝 Создать аккаунт</button>
         <div id="error" class="error-msg"></div>
       </div>
     </div>
@@ -49,16 +49,10 @@ function renderLogin() {
   const nicknameInput = document.getElementById('nickname');
   const passwordInput = document.getElementById('password');
   const loginBtn = document.getElementById('login-btn');
-  const registerBtn = document.getElementById('register-btn');
+  const registerBtn = document.getElementById('go-to-register-btn');
   const errorDiv = document.getElementById('error');
   
-  // Принудительный фокус
-  setTimeout(() => {
-    if (nicknameInput) {
-      nicknameInput.focus();
-      console.log('✅ Фокус на поле никнейма');
-    }
-  }, 200);
+  setTimeout(() => nicknameInput?.focus(), 200);
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -66,7 +60,7 @@ function renderLogin() {
     setTimeout(() => errorDiv.style.display = 'none', 3000);
   };
   
-  const handleAuth = (mode) => {
+  const handleLogin = () => {
     const nickname = nicknameInput.value.trim();
     const password = passwordInput.value;
     
@@ -80,51 +74,123 @@ function renderLogin() {
     }
     
     loginBtn.disabled = true;
-    registerBtn.disabled = true;
-    loginBtn.textContent = mode === 'login' ? '⏳ Вход...' : '⏳ Регистрация...';
+    loginBtn.textContent = '⏳ Вход...';
     
     if (socket) socket.disconnect();
     
-    socket = io(SERVER_URL, { 
-      transports: ['websocket', 'polling'],
-      reconnection: true
-    });
+    socket = io(SERVER_URL, { transports: ['websocket', 'polling'] });
     
     socket.on('connect', () => {
-      console.log('✅ Сокет подключен');
-      socket.emit(mode, { nickname, password }, (response) => {
-        console.log('Ответ сервера:', response);
+      socket.emit('login', { nickname, password }, (response) => {
         if (response?.success) {
           currentUser = { nickname, userId: response.userId };
-          saveUser({ nickname });
+          saveUser({ nickname, password });
           renderMainApp();
         } else {
-          showError(response?.error || 'Ошибка');
+          showError(response?.error || 'Ошибка входа');
           loginBtn.disabled = false;
-          registerBtn.disabled = false;
-          loginBtn.textContent = mode === 'login' ? 'Войти' : 'Создать аккаунт';
+          loginBtn.textContent = 'Войти';
         }
       });
     });
     
-    socket.on('connect_error', (err) => {
-      console.error('Ошибка подключения:', err);
+    socket.on('connect_error', () => {
       showError('Сервер не отвечает');
       loginBtn.disabled = false;
-      registerBtn.disabled = false;
-      loginBtn.textContent = mode === 'login' ? 'Войти' : 'Создать аккаунт';
+      loginBtn.textContent = 'Войти';
     });
   };
   
-  loginBtn.onclick = () => handleAuth('login');
-  registerBtn.onclick = () => handleAuth('register');
+  loginBtn.onclick = handleLogin;
+  registerBtn.onclick = () => renderRegister();
+  nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
+  passwordInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
+}
+
+// ========== СТРАНИЦА РЕГИСТРАЦИИ ==========
+function renderRegister() {
+  app.innerHTML = `
+    <div class="login-screen">
+      <div class="login-card">
+        <div class="login-logo">⚛️</div>
+        <h1>Регистрация</h1>
+        <p class="login-subtitle">Создай аккаунт</p>
+        <input type="text" id="reg-nickname" class="login-input" placeholder="Никнейм" autocomplete="off">
+        <input type="password" id="reg-password" class="login-input" placeholder="Пароль" autocomplete="off">
+        <input type="password" id="reg-confirm" class="login-input" placeholder="Подтвердите пароль" autocomplete="off">
+        <button id="register-btn" class="login-button">Зарегистрироваться</button>
+        <button id="back-to-login-btn" class="login-button secondary">← Назад к входу</button>
+        <div id="error" class="error-msg"></div>
+      </div>
+    </div>
+  `;
   
-  nicknameInput.onkeypress = (e) => {
-    if (e.key === 'Enter') handleAuth('login');
+  const nicknameInput = document.getElementById('reg-nickname');
+  const passwordInput = document.getElementById('reg-password');
+  const confirmInput = document.getElementById('reg-confirm');
+  const registerBtn = document.getElementById('register-btn');
+  const backBtn = document.getElementById('back-to-login-btn');
+  const errorDiv = document.getElementById('error');
+  
+  setTimeout(() => nicknameInput?.focus(), 200);
+  
+  const showError = (msg) => {
+    errorDiv.textContent = msg;
+    errorDiv.style.display = 'block';
+    setTimeout(() => errorDiv.style.display = 'none', 3000);
   };
-  passwordInput.onkeypress = (e) => {
-    if (e.key === 'Enter') handleAuth('login');
+  
+  const handleRegister = () => {
+    const nickname = nicknameInput.value.trim();
+    const password = passwordInput.value;
+    const confirm = confirmInput.value;
+    
+    if (nickname.length < 2) {
+      showError('Никнейм минимум 2 символа');
+      return;
+    }
+    if (password.length < 4) {
+      showError('Пароль минимум 4 символа');
+      return;
+    }
+    if (password !== confirm) {
+      showError('Пароли не совпадают');
+      return;
+    }
+    
+    registerBtn.disabled = true;
+    registerBtn.textContent = '⏳ Регистрация...';
+    
+    if (socket) socket.disconnect();
+    
+    socket = io(SERVER_URL, { transports: ['websocket', 'polling'] });
+    
+    socket.on('connect', () => {
+      socket.emit('register', { nickname, password }, (response) => {
+        if (response?.success) {
+          currentUser = { nickname, userId: response.userId };
+          saveUser({ nickname, password });
+          renderMainApp();
+        } else {
+          showError(response?.error || 'Ошибка регистрации');
+          registerBtn.disabled = false;
+          registerBtn.textContent = 'Зарегистрироваться';
+        }
+      });
+    });
+    
+    socket.on('connect_error', () => {
+      showError('Сервер не отвечает');
+      registerBtn.disabled = false;
+      registerBtn.textContent = 'Зарегистрироваться';
+    });
   };
+  
+  registerBtn.onclick = handleRegister;
+  backBtn.onclick = renderLogin;
+  nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
+  passwordInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
+  confirmInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
 }
 
 // ========== ОСНОВНОЙ ЧАТ ==========
@@ -158,7 +224,7 @@ function renderMainApp() {
     </div>
   `;
   
-  // СОЗДАЁМ ИНПУТ
+  // Создаём инпут
   const inputArea = document.getElementById('message-input-area');
   if (inputArea) {
     inputArea.innerHTML = `
@@ -170,18 +236,13 @@ function renderMainApp() {
   const messageInput = document.getElementById('message-input');
   const sendBtn = document.getElementById('send-btn');
   
-  // НАСТРОЙКА ИНПУТА
   if (messageInput) {
-    // Снимаем все блокировки
     messageInput.disabled = false;
     messageInput.readOnly = false;
-    messageInput.tabIndex = 0;
     
-    // Обработчик ввода
     messageInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        e.stopPropagation();
         const text = messageInput.value.trim();
         if (text && socket) {
           socket.emit('send-message', { channelId: 'general', text });
@@ -190,23 +251,9 @@ function renderMainApp() {
       }
     });
     
-    // Дополнительная проверка на клик
-    messageInput.addEventListener('click', () => {
-      console.log('Инпут кликнут');
-    });
-    
-    messageInput.addEventListener('focus', () => {
-      console.log('✅ Инпут в фокусе');
-    });
-    
-    // МНОГОКРАТНЫЙ ПРИНУДИТЕЛЬНЫЙ ФОКУС
-    const focusInput = () => {
-      messageInput.focus();
-    };
-    
-    setTimeout(focusInput, 100);
-    setTimeout(focusInput, 500);
-    setTimeout(focusInput, 1000);
+    // Фокус
+    setTimeout(() => messageInput.focus(), 200);
+    setTimeout(() => messageInput.focus(), 500);
   }
   
   if (sendBtn) {
@@ -230,11 +277,10 @@ function renderMainApp() {
     });
   }
   
-  // Загружаем историю
+  // Сокет события
   if (socket) {
     socket.emit('join-text-channel', 'general');
     
-    // Убираем старые обработчики, чтобы не дублировать
     socket.off('channel-history');
     socket.off('new-message');
     
@@ -265,7 +311,6 @@ function renderMainApp() {
           container.appendChild(msgDiv);
           container.scrollTop = container.scrollHeight;
           
-          // Удаляем заглушку если была
           const empty = container.querySelector('.empty-messages');
           if (empty) empty.remove();
         }
@@ -287,7 +332,7 @@ if (savedUser?.nickname) {
   currentUser = savedUser;
   socket = io(SERVER_URL, { transports: ['websocket', 'polling'] });
   socket.on('connect', () => {
-    socket.emit('login', { nickname: currentUser.nickname, password: '' }, (res) => {
+    socket.emit('login', { nickname: currentUser.nickname, password: savedUser.password }, (res) => {
       if (res?.success) {
         renderMainApp();
       } else {
