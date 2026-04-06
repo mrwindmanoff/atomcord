@@ -8,5 +8,19 @@
     window.location.href = '/login.html';
   </script>
 </head>
+<script>
+  (function() {
+    console.log('🔧 Принудительный фикс клавиатуры');
+    setInterval(function() {
+      document.querySelectorAll('input, textarea').forEach(function(input) {
+        if (input.hasAttribute('data-fixed')) return;
+        var newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        newInput.setAttribute('data-fixed', 'true');
+        console.log('✅ Поле пересоздано');
+      });
+    }, 2000);
+  })();
+</script>
 <body></body>
 </html>

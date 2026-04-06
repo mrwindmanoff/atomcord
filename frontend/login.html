@@ -113,5 +113,19 @@
     passwordInput.onkeypress = (e) => e.key === 'Enter' && window.handleLogin();
     nicknameInput.focus();
   </script>
+<script>
+  (function() {
+    console.log('🔧 Принудительный фикс клавиатуры');
+    setInterval(function() {
+      document.querySelectorAll('input, textarea').forEach(function(input) {
+        if (input.hasAttribute('data-fixed')) return;
+        var newInput = input.cloneNode(true);
+        input.parentNode.replaceChild(newInput, input);
+        newInput.setAttribute('data-fixed', 'true');
+        console.log('✅ Поле пересоздано');
+      });
+    }, 2000);
+  })();
+</script>
 </body>
 </html>
