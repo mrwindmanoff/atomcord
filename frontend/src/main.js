@@ -40,8 +40,8 @@ function renderLogin() {
         <h1>AtomCord</h1>
         <p class="login-subtitle">Голосовой штаб нового поколения</p>
         
-        <input type="text" id="login-nickname" class="login-input" placeholder="Никнейм">
-        <input type="password" id="login-password" class="login-input" placeholder="Пароль">
+        <input type="text" id="login-nickname" class="login-input" placeholder="Никнейм" autocomplete="off">
+        <input type="password" id="login-password" class="login-input" placeholder="Пароль" autocomplete="off">
         
         <button id="do-login-btn" class="login-button">Войти</button>
         <button id="go-to-register-btn" class="login-button secondary">📝 Создать аккаунт</button>
@@ -114,6 +114,7 @@ function renderLogin() {
   registerBtn.onclick = goToRegister;
   nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
   passwordInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
+  nicknameInput.focus();
 }
 
 // ========== СТРАНИЦА РЕГИСТРАЦИИ ==========
@@ -125,9 +126,9 @@ function renderRegister() {
         <h1>Регистрация</h1>
         <p class="login-subtitle">Создай аккаунт</p>
         
-        <input type="text" id="reg-nickname" class="login-input" placeholder="Никнейм">
-        <input type="password" id="reg-password" class="login-input" placeholder="Пароль">
-        <input type="password" id="reg-confirm" class="login-input" placeholder="Подтвердите пароль">
+        <input type="text" id="reg-nickname" class="login-input" placeholder="Никнейм" autocomplete="off">
+        <input type="password" id="reg-password" class="login-input" placeholder="Пароль" autocomplete="off">
+        <input type="password" id="reg-confirm" class="login-input" placeholder="Подтвердите пароль" autocomplete="off">
         
         <button id="do-register-btn" class="login-button">Зарегистрироваться</button>
         <button id="back-to-login-btn" class="login-button secondary">← Назад</button>
@@ -203,11 +204,11 @@ function renderRegister() {
   nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
   passwordInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
   confirmInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
+  nicknameInput.focus();
 }
 
 // ========== ОСНОВНОЕ ПРИЛОЖЕНИЕ (с серверами) ==========
 function initApp() {
-  // Загружаем сервера
   socket.emit('get-servers', (serversList) => {
     servers = serversList || [];
     if (servers.length > 0) {
@@ -296,13 +297,16 @@ function createChannel() {
 
 function sendMessage() {
   const input = document.getElementById('message-input');
-  const text = input?.value.trim();
+  if (!input) return;
+  
+  const text = input.value.trim();
   if (text && currentChannel?.type === 'text') {
     socket.emit('send-message', {
       channelId: currentChannel.id,
       text: text
     });
     input.value = '';
+    input.focus();
   }
 }
 
@@ -338,7 +342,6 @@ function appendMessage(message) {
 function renderMainUI() {
   app.innerHTML = `
     <div class="main-layout">
-      <!-- Сайдбар -->
       <div class="sidebar">
         <div class="sidebar-header">
           <div class="logo">⚛️ AtomCord</div>
@@ -375,7 +378,6 @@ function renderMainUI() {
         </div>
       </div>
       
-      <!-- Основная область -->
       <div class="main-content">
         <div class="chat-header">
           <h2>${currentChannel ? (currentChannel.type === 'voice' ? '🎙️' : '#') + ' ' + escapeHtml(currentChannel.name) : 'Выберите канал'}</h2>
@@ -387,7 +389,7 @@ function renderMainUI() {
         
         ${currentChannel?.type === 'text' ? `
           <div class="message-input-area">
-            <input type="text" id="message-input" class="message-input" placeholder="Введите сообщение...">
+            <input type="text" id="message-input" class="message-input" placeholder="Введите сообщение..." autocomplete="off">
             <button id="send-btn" class="send-btn">📤</button>
           </div>
         ` : currentChannel?.type === 'voice' ? `
@@ -401,19 +403,17 @@ function renderMainUI() {
     </div>
   `;
   
-  // Обработчики
+  // Обработчики серверов
   document.querySelectorAll('.server').forEach(el => {
-    el.onclick = () => {
-      selectServer(el.dataset.serverId);
-    };
+    el.onclick = () => selectServer(el.dataset.serverId);
   });
   
+  // Обработчики каналов
   document.querySelectorAll('.channel').forEach(el => {
-    el.onclick = () => {
-      selectChannel(el.dataset.channelId);
-    };
+    el.onclick = () => selectChannel(el.dataset.channelId);
   });
   
+  // Кнопки
   document.getElementById('create-server-btn')?.addEventListener('click', createServer);
   document.getElementById('create-channel-btn')?.addEventListener('click', createChannel);
   document.getElementById('logout-btn')?.addEventListener('click', () => {
@@ -421,20 +421,38 @@ function renderMainUI() {
     clearSavedUser();
     renderLogin();
   });
-  document.getElementById('send-btn')?.addEventListener('click', sendMessage);
-  document.getElementById('message-input')?.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendMessage();
-  });
+  
+  // Отправка сообщений
+  const sendBtn = document.getElementById('send-btn');
+  const messageInput = document.getElementById('message-input');
+  
+  if (sendBtn && messageInput) {
+    sendBtn.onclick = sendMessage;
+    messageInput.onkeypress = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendMessage();
+      }
+    };
+    // Принудительный фокус
+    setTimeout(() => {
+      messageInput.focus();
+    }, 100);
+  }
+  
+  // Голос
   document.getElementById('voice-connect-btn')?.addEventListener('click', () => {
     alert('Голосовой чат в разработке');
   });
   
+  // Рендер сообщений если есть
   if (currentChannel?.type === 'text') {
     renderMessages();
   }
 }
 
 function escapeHtml(str) {
+  if (!str) return '';
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
