@@ -106,15 +106,11 @@ function renderLogin() {
     });
   };
   
-  const goToRegister = () => {
-    renderRegister();
-  };
-  
   loginBtn.onclick = handleLogin;
-  registerBtn.onclick = goToRegister;
+  registerBtn.onclick = () => renderRegister();
   nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
   passwordInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
-  nicknameInput.focus();
+  setTimeout(() => nicknameInput.focus(), 100);
 }
 
 // ========== СТРАНИЦА РЕГИСТРАЦИИ ==========
@@ -204,10 +200,10 @@ function renderRegister() {
   nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
   passwordInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
   confirmInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
-  nicknameInput.focus();
+  setTimeout(() => nicknameInput.focus(), 100);
 }
 
-// ========== ОСНОВНОЕ ПРИЛОЖЕНИЕ (с серверами) ==========
+// ========== ОСНОВНОЕ ПРИЛОЖЕНИЕ ==========
 function initApp() {
   socket.emit('get-servers', (serversList) => {
     servers = serversList || [];
@@ -403,17 +399,15 @@ function renderMainUI() {
     </div>
   `;
   
-  // Обработчики серверов
+  // Обработчики
   document.querySelectorAll('.server').forEach(el => {
     el.onclick = () => selectServer(el.dataset.serverId);
   });
   
-  // Обработчики каналов
   document.querySelectorAll('.channel').forEach(el => {
     el.onclick = () => selectChannel(el.dataset.channelId);
   });
   
-  // Кнопки
   document.getElementById('create-server-btn')?.addEventListener('click', createServer);
   document.getElementById('create-channel-btn')?.addEventListener('click', createChannel);
   document.getElementById('logout-btn')?.addEventListener('click', () => {
@@ -422,30 +416,69 @@ function renderMainUI() {
     renderLogin();
   });
   
-  // Отправка сообщений
-  const sendBtn = document.getElementById('send-btn');
+  // === КЛЮЧЕВОЕ: правильная инициализация инпута ===
   const messageInput = document.getElementById('message-input');
+  const sendBtn = document.getElementById('send-btn');
   
-  if (sendBtn && messageInput) {
-    sendBtn.onclick = sendMessage;
-    messageInput.onkeypress = (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        sendMessage();
-      }
-    };
-    // Принудительный фокус
-    setTimeout(() => {
-      messageInput.focus();
-    }, 100);
+  if (messageInput && sendBtn) {
+    // Очищаем старые обработчики
+    const newInput = messageInput.cloneNode(true);
+    messageInput.parentNode.replaceChild(newInput, messageInput);
+    const newSendBtn = sendBtn.cloneNode(true);
+    sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
+    
+    const finalInput = document.getElementById('message-input');
+    const finalSendBtn = document.getElementById('send-btn');
+    
+    if (finalInput) {
+      finalInput.value = '';
+      finalInput.removeAttribute('disabled');
+      finalInput.removeAttribute('readonly');
+      
+      finalInput.onkeypress = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const text = finalInput.value.trim();
+          if (text && currentChannel?.type === 'text') {
+            socket.emit('send-message', {
+              channelId: currentChannel.id,
+              text: text
+            });
+            finalInput.value = '';
+          }
+        }
+      };
+      
+      finalInput.oninput = () => {
+        // Просто чтобы инпут был активным
+      };
+      
+      // ПРИНУДИТЕЛЬНЫЙ ФОКУС
+      setTimeout(() => {
+        finalInput.focus();
+        console.log('✅ Инпут сфокусирован');
+      }, 50);
+    }
+    
+    if (finalSendBtn) {
+      finalSendBtn.onclick = () => {
+        const text = finalInput?.value.trim();
+        if (text && currentChannel?.type === 'text') {
+          socket.emit('send-message', {
+            channelId: currentChannel.id,
+            text: text
+          });
+          if (finalInput) finalInput.value = '';
+          finalInput?.focus();
+        }
+      };
+    }
   }
   
-  // Голос
   document.getElementById('voice-connect-btn')?.addEventListener('click', () => {
     alert('Голосовой чат в разработке');
   });
   
-  // Рендер сообщений если есть
   if (currentChannel?.type === 'text') {
     renderMessages();
   }
