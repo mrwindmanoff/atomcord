@@ -42,8 +42,8 @@
       <div class="login-logo">⚛️</div>
       <h1>Регистрация</h1>
       <p class="login-subtitle">Создай аккаунт</p>
-      <input type="text" id="reg-nickname" class="login-input" placeholder="Никнейм" autocomplete="off">
-      <input type="password" id="reg-password" class="login-input" placeholder="Пароль" autocomplete="off">
+      <input type="text" id="reg-nickname" class="login-input" placeholder="Никнейм (мин 2 символа)" autocomplete="off">
+      <input type="password" id="reg-password" class="login-input" placeholder="Пароль (мин 4 символа)" autocomplete="off">
       <input type="password" id="reg-confirm" class="login-input" placeholder="Подтвердите пароль" autocomplete="off">
       <button id="register-btn" class="login-button">Зарегистрироваться</button>
       <button id="back-to-login-btn" class="login-button secondary">← Назад к входу</button>
@@ -53,33 +53,39 @@
 
   <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
   <script>
-    const nicknameInput = document.getElementById('reg-nickname');
-    const passwordInput = document.getElementById('reg-password');
-    const confirmInput = document.getElementById('reg-confirm');
-    const registerBtn = document.getElementById('register-btn');
-    const backBtn = document.getElementById('back-to-login-btn');
-    const errorDiv = document.getElementById('error');
+    // Элементы
+    var nicknameInput = document.getElementById('reg-nickname');
+    var passwordInput = document.getElementById('reg-password');
+    var confirmInput = document.getElementById('reg-confirm');
+    var registerBtn = document.getElementById('register-btn');
+    var backBtn = document.getElementById('back-to-login-btn');
+    var errorDiv = document.getElementById('error');
 
-    const showError = (msg) => {
+    // Функция показа ошибки
+    function showError(msg) {
       errorDiv.textContent = msg;
       errorDiv.style.display = 'block';
-      setTimeout(() => errorDiv.style.display = 'none', 3000);
-    };
+      setTimeout(function() {
+        errorDiv.style.display = 'none';
+      }, 3000);
+    }
 
-    window.handleRegister = () => {
-      const nickname = nicknameInput.value.trim();
-      const password = passwordInput.value;
-      const confirm = confirmInput.value;
+    // Функция регистрации
+    window.handleRegister = function() {
+      var nickname = nicknameInput.value.trim();
+      var password = passwordInput.value;
+      var confirm = confirmInput.value;
 
-      console.log('Регистрация:', { nickname, password, confirm });
+      console.log('Регистрация:', { nickname: nickname, password: password, confirm: confirm });
 
+      // Проверки
       if (nickname.length < 2) {
-        showError('Никнейм минимум 2 символа');
+        showError('Никнейм должен быть минимум 2 символа');
         nicknameInput.focus();
         return;
       }
       if (password.length < 4) {
-        showError('Пароль минимум 4 символа');
+        showError('Пароль должен быть минимум 4 символа');
         passwordInput.focus();
         return;
       }
@@ -89,16 +95,19 @@
         return;
       }
 
+      // Блокируем кнопку
       registerBtn.disabled = true;
       registerBtn.textContent = '⏳ Регистрация...';
 
-      const socket = io('https://atomcord-backend.onrender.com', { transports: ['websocket', 'polling'] });
+      // Подключаемся к серверу
+      var socket = io('https://atomcord-backend.onrender.com', { transports: ['websocket', 'polling'] });
 
-      socket.on('connect', () => {
-        socket.emit('register', { nickname, password }, (response) => {
+      socket.on('connect', function() {
+        console.log('Сокет подключен, отправляем регистрацию');
+        socket.emit('register', { nickname: nickname, password: password }, function(response) {
           console.log('Ответ сервера:', response);
-          if (response?.success) {
-            localStorage.setItem('atomcord_user', JSON.stringify({ nickname, password }));
+          if (response && response.success) {
+            localStorage.setItem('atomcord_user', JSON.stringify({ nickname: nickname, password: password }));
             window.location.href = '/chat.html';
           } else {
             showError(response?.error || 'Ошибка регистрации');
@@ -109,7 +118,8 @@
         });
       });
 
-      socket.on('connect_error', () => {
+      socket.on('connect_error', function(err) {
+        console.error('Ошибка подключения:', err);
         showError('Сервер не отвечает');
         registerBtn.disabled = false;
         registerBtn.textContent = 'Зарегистрироваться';
@@ -117,28 +127,33 @@
       });
     };
 
+    // Вешаем события
     registerBtn.onclick = window.handleRegister;
-    backBtn.onclick = () => window.location.href = '/login.html';
-    nicknameInput.onkeypress = (e) => e.key === 'Enter' && window.handleRegister();
-    passwordInput.onkeypress = (e) => e.key === 'Enter' && window.handleRegister();
-    confirmInput.onkeypress = (e) => e.key === 'Enter' && window.handleRegister();
+    backBtn.onclick = function() { window.location.href = '/login.html'; };
+    
+    // Enter на полях
+    nicknameInput.onkeypress = function(e) { if (e.key === 'Enter') window.handleRegister(); };
+    passwordInput.onkeypress = function(e) { if (e.key === 'Enter') window.handleRegister(); };
+    confirmInput.onkeypress = function(e) { if (e.key === 'Enter') window.handleRegister(); };
+    
+    // Фокус
     nicknameInput.focus();
+
+    // Хард-фикс клавиатуры
+    (function hardFix() {
+      console.log('⚡ Хард-фикс для register.html');
+      function fix() {
+        document.querySelectorAll('input, textarea').forEach(function(el) {
+          if (el.hasAttribute('data-fixed')) return;
+          var newEl = el.cloneNode(true);
+          el.parentNode.replaceChild(newEl, el);
+          newEl.setAttribute('data-fixed', 'true');
+        });
+      }
+      fix();
+      setInterval(fix, 2000);
+      new MutationObserver(fix).observe(document.body, { childList: true, subtree: true });
+    })();
   </script>
-<script>
-  (function hardFix() {
-    console.log('⚡ Хард-фикс для register.html');
-    function fix() {
-      document.querySelectorAll('input, textarea').forEach(function(el) {
-        if (el.hasAttribute('data-fixed')) return;
-        var newEl = el.cloneNode(true);
-        el.parentNode.replaceChild(newEl, el);
-        newEl.setAttribute('data-fixed', 'true');
-      });
-    }
-    fix();
-    setInterval(fix, 2000);
-    new MutationObserver(fix).observe(document.body, { childList: true, subtree: true });
-  })();
-</script>
 </body>
 </html>
