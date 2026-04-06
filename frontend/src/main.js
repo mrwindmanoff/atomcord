@@ -36,6 +36,51 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// ===== ВЕЧНЫЙ ФИКС КЛАВИАТУРЫ =====
+function fixAllInputs() {
+  const inputs = document.querySelectorAll('input, textarea');
+  inputs.forEach(input => {
+    if (input.hasAttribute('data-fixed')) return;
+    
+    // Сохраняем значение и атрибуты
+    const value = input.value;
+    const id = input.id;
+    const className = input.className;
+    const placeholder = input.placeholder;
+    const inputType = input.type;
+    
+    // Создаём новый элемент
+    const newInput = document.createElement(input.tagName);
+    newInput.id = id;
+    newInput.className = className;
+    newInput.placeholder = placeholder;
+    if (inputType) newInput.type = inputType;
+    newInput.value = value;
+    newInput.autocomplete = 'off';
+    
+    // Копируем все data-атрибуты
+    for (let attr of input.attributes) {
+      if (attr.name.startsWith('data-')) {
+        newInput.setAttribute(attr.name, attr.value);
+      }
+    }
+    
+    // Жёсткие стили для гарантии работы
+    newInput.style.cssText = `
+      pointer-events: auto !important;
+      user-select: text !important;
+      -webkit-user-select: text !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+    `;
+    
+    newInput.setAttribute('data-fixed', 'true');
+    
+    // Заменяем старый элемент новым
+    input.parentNode.replaceChild(newInput, input);
+  });
+}
+
 // ========== СТРАНИЦА ВХОДА ==========
 function renderLogin() {
   app.innerHTML = `
@@ -55,6 +100,11 @@ function renderLogin() {
     </div>
   `;
   
+  // ВЕЧНЫЙ ФИКС
+  setTimeout(() => fixAllInputs(), 50);
+  setTimeout(() => fixAllInputs(), 200);
+  setTimeout(() => fixAllInputs(), 500);
+  
   const nicknameInput = document.getElementById('nickname');
   const passwordInput = document.getElementById('password');
   const loginBtn = document.getElementById('login-btn');
@@ -62,15 +112,11 @@ function renderLogin() {
   const errorDiv = document.getElementById('error');
   
   const setFocus = () => {
-    if (nicknameInput) {
-      nicknameInput.focus();
-      console.log('✅ Фокус на nicknameInput');
-    }
+    if (nicknameInput) nicknameInput.focus();
   };
   setTimeout(setFocus, 100);
   setTimeout(setFocus, 300);
-  setTimeout(setFocus, 500);
-  setTimeout(setFocus, 1000);
+  setTimeout(setFocus, 600);
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -79,17 +125,15 @@ function renderLogin() {
   };
   
   const handleLogin = () => {
-    const nickname = nicknameInput.value.trim();
-    const password = passwordInput.value;
+    const nickname = nicknameInput?.value.trim();
+    const password = passwordInput?.value;
     
-    if (nickname.length < 2) {
+    if (!nickname || nickname.length < 2) {
       showError('Никнейм минимум 2 символа');
-      nicknameInput.focus();
       return;
     }
-    if (password.length < 4) {
+    if (!password || password.length < 4) {
       showError('Пароль минимум 4 символа');
-      passwordInput.focus();
       return;
     }
     
@@ -110,7 +154,7 @@ function renderLogin() {
           showError(response?.error || 'Ошибка входа');
           loginBtn.disabled = false;
           loginBtn.textContent = 'Войти';
-          setTimeout(() => nicknameInput.focus(), 100);
+          setTimeout(() => nicknameInput?.focus(), 100);
         }
       });
     });
@@ -119,17 +163,17 @@ function renderLogin() {
       showError('Сервер не отвечает');
       loginBtn.disabled = false;
       loginBtn.textContent = 'Войти';
-      setTimeout(() => nicknameInput.focus(), 100);
+      setTimeout(() => nicknameInput?.focus(), 100);
     });
   };
   
   loginBtn.onclick = handleLogin;
   registerBtn.onclick = () => renderRegister();
-  nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
-  passwordInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
+  nicknameInput?.addEventListener('keypress', (e) => e.key === 'Enter' && handleLogin());
+  passwordInput?.addEventListener('keypress', (e) => e.key === 'Enter' && handleLogin());
 }
 
-// ========== СТРАНИЦА РЕГИСТРАЦИИ (С ФОКУСОМ) ==========
+// ========== СТРАНИЦА РЕГИСТРАЦИИ ==========
 function renderRegister() {
   app.innerHTML = `
     <div class="login-screen">
@@ -149,6 +193,11 @@ function renderRegister() {
     </div>
   `;
   
+  // ВЕЧНЫЙ ФИКС
+  setTimeout(() => fixAllInputs(), 50);
+  setTimeout(() => fixAllInputs(), 200);
+  setTimeout(() => fixAllInputs(), 500);
+  
   const nicknameInput = document.getElementById('reg-nickname');
   const passwordInput = document.getElementById('reg-password');
   const confirmInput = document.getElementById('reg-confirm');
@@ -156,17 +205,12 @@ function renderRegister() {
   const backBtn = document.getElementById('back-to-login-btn');
   const errorDiv = document.getElementById('error');
   
-  // МНОЖЕСТВЕННЫЙ ПРИНУДИТЕЛЬНЫЙ ФОКУС
   const setFocus = () => {
-    if (nicknameInput) {
-      nicknameInput.focus();
-      console.log('✅ Фокус на reg-nicknameInput');
-    }
+    if (nicknameInput) nicknameInput.focus();
   };
   setTimeout(setFocus, 100);
   setTimeout(setFocus, 300);
-  setTimeout(setFocus, 500);
-  setTimeout(setFocus, 1000);
+  setTimeout(setFocus, 600);
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -175,23 +219,20 @@ function renderRegister() {
   };
   
   const handleRegister = () => {
-    const nickname = nicknameInput.value.trim();
-    const password = passwordInput.value;
-    const confirm = confirmInput.value;
+    const nickname = nicknameInput?.value.trim();
+    const password = passwordInput?.value;
+    const confirm = confirmInput?.value;
     
-    if (nickname.length < 2) {
+    if (!nickname || nickname.length < 2) {
       showError('Никнейм минимум 2 символа');
-      nicknameInput.focus();
       return;
     }
-    if (password.length < 4) {
+    if (!password || password.length < 4) {
       showError('Пароль минимум 4 символа');
-      passwordInput.focus();
       return;
     }
     if (password !== confirm) {
       showError('Пароли не совпадают');
-      confirmInput.focus();
       return;
     }
     
@@ -212,7 +253,7 @@ function renderRegister() {
           showError(response?.error || 'Ошибка регистрации');
           registerBtn.disabled = false;
           registerBtn.textContent = 'Зарегистрироваться';
-          setTimeout(() => nicknameInput.focus(), 100);
+          setTimeout(() => nicknameInput?.focus(), 100);
         }
       });
     });
@@ -221,16 +262,15 @@ function renderRegister() {
       showError('Сервер не отвечает');
       registerBtn.disabled = false;
       registerBtn.textContent = 'Зарегистрироваться';
-      setTimeout(() => nicknameInput.focus(), 100);
+      setTimeout(() => nicknameInput?.focus(), 100);
     });
   };
   
   registerBtn.onclick = handleRegister;
   backBtn.onclick = renderLogin;
-  
-  nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
-  passwordInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
-  confirmInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
+  nicknameInput?.addEventListener('keypress', (e) => e.key === 'Enter' && handleRegister());
+  passwordInput?.addEventListener('keypress', (e) => e.key === 'Enter' && handleRegister());
+  confirmInput?.addEventListener('keypress', (e) => e.key === 'Enter' && handleRegister());
 }
 
 // ========== ОСНОВНОЙ ЧАТ ==========
@@ -277,33 +317,29 @@ function renderMainApp() {
     `;
   }
   
+  // ВЕЧНЫЙ ФИКС для инпута в чате
+  setTimeout(() => fixAllInputs(), 50);
+  setTimeout(() => fixAllInputs(), 200);
+  
   const messageInput = document.getElementById('message-input');
   const sendBtn = document.getElementById('send-btn');
   
   if (messageInput) {
-    messageInput.disabled = false;
-    messageInput.readOnly = false;
-    
-    const setFocus = () => {
-      messageInput.focus();
-      console.log('✅ Фокус на messageInput');
-    };
+    const setFocus = () => messageInput.focus();
     setTimeout(setFocus, 200);
     setTimeout(setFocus, 500);
     setTimeout(setFocus, 1000);
-    setTimeout(setFocus, 2000);
     
-    messageInput.onkeypress = (e) => {
+    messageInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         const text = messageInput.value.trim();
         if (text && socket) {
           socket.emit('send-message', { channelId: currentChannel.id, text });
           messageInput.value = '';
-          setFocus();
         }
       }
-    };
+    });
   }
   
   if (sendBtn) {
@@ -375,7 +411,6 @@ function renderMainApp() {
           msgDiv.innerHTML = `<strong style="color:#b392f0;">${escapeHtml(message.nickname)}</strong> <span>${escapeHtml(message.text)}</span>`;
           container.appendChild(msgDiv);
           container.scrollTop = container.scrollHeight;
-          
           const empty = container.querySelector('.empty-messages');
           if (empty) empty.remove();
         }
