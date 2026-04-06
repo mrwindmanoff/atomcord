@@ -36,6 +36,18 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+// ВЕЧНЫЙ ФИКС КЛАВИАТУРЫ
+function fixAllInputs() {
+  document.querySelectorAll('input, textarea').forEach(input => {
+    if (input.hasAttribute('data-fixed')) return;
+    
+    const newInput = input.cloneNode(true);
+    input.parentNode.replaceChild(newInput, input);
+    newInput.setAttribute('data-fixed', 'true');
+    console.log('✅ Поле пересоздано');
+  });
+}
+
 // ========== СТРАНИЦА ВХОДА ==========
 function renderLogin() {
   app.innerHTML = `
@@ -55,8 +67,11 @@ function renderLogin() {
     </div>
   `;
   
-  const nicknameInput = document.getElementById('nickname');
-  const passwordInput = document.getElementById('password');
+  // Фикс клавиатуры
+  setTimeout(fixAllInputs, 50);
+  setTimeout(fixAllInputs, 200);
+  setTimeout(fixAllInputs, 500);
+  
   const loginBtn = document.getElementById('login-btn');
   const registerBtn = document.getElementById('go-to-register-btn');
   const errorDiv = document.getElementById('error');
@@ -68,15 +83,21 @@ function renderLogin() {
   };
   
   const handleLogin = () => {
-    const nickname = nicknameInput.value.trim();
-    const password = passwordInput.value;
+    // ПОЛУЧАЕМ ЭЛЕМЕНТЫ КАЖДЫЙ РАЗ ЗАНОВО (ВАЖНО!)
+    const nicknameInput = document.getElementById('nickname');
+    const passwordInput = document.getElementById('password');
+    
+    const nickname = nicknameInput?.value.trim() || '';
+    const password = passwordInput?.value || '';
     
     if (nickname.length < 2) {
       showError('Никнейм минимум 2 символа');
+      nicknameInput?.focus();
       return;
     }
     if (password.length < 4) {
       showError('Пароль минимум 4 символа');
+      passwordInput?.focus();
       return;
     }
     
@@ -97,6 +118,7 @@ function renderLogin() {
           showError(response?.error || 'Ошибка входа');
           loginBtn.disabled = false;
           loginBtn.textContent = 'Войти';
+          document.getElementById('nickname')?.focus();
         }
       });
     });
@@ -105,13 +127,23 @@ function renderLogin() {
       showError('Сервер не отвечает');
       loginBtn.disabled = false;
       loginBtn.textContent = 'Войти';
+      document.getElementById('nickname')?.focus();
     });
   };
   
   loginBtn.onclick = handleLogin;
   registerBtn.onclick = () => renderRegister();
-  nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
-  passwordInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
+  
+  // Обработчики Enter
+  const setupEnter = () => {
+    const nick = document.getElementById('nickname');
+    const pass = document.getElementById('password');
+    if (nick) nick.onkeypress = (e) => e.key === 'Enter' && handleLogin();
+    if (pass) pass.onkeypress = (e) => e.key === 'Enter' && handleLogin();
+  };
+  setupEnter();
+  setTimeout(setupEnter, 100);
+  setTimeout(setupEnter, 300);
 }
 
 // ========== СТРАНИЦА РЕГИСТРАЦИИ ==========
@@ -134,9 +166,10 @@ function renderRegister() {
     </div>
   `;
   
-  const nicknameInput = document.getElementById('reg-nickname');
-  const passwordInput = document.getElementById('reg-password');
-  const confirmInput = document.getElementById('reg-confirm');
+  setTimeout(fixAllInputs, 50);
+  setTimeout(fixAllInputs, 200);
+  setTimeout(fixAllInputs, 500);
+  
   const registerBtn = document.getElementById('register-btn');
   const backBtn = document.getElementById('back-to-login-btn');
   const errorDiv = document.getElementById('error');
@@ -148,20 +181,28 @@ function renderRegister() {
   };
   
   const handleRegister = () => {
-    const nickname = nicknameInput.value.trim();
-    const password = passwordInput.value;
-    const confirm = confirmInput.value;
+    // ПОЛУЧАЕМ ЭЛЕМЕНТЫ КАЖДЫЙ РАЗ ЗАНОВО
+    const nicknameInput = document.getElementById('reg-nickname');
+    const passwordInput = document.getElementById('reg-password');
+    const confirmInput = document.getElementById('reg-confirm');
+    
+    const nickname = nicknameInput?.value.trim() || '';
+    const password = passwordInput?.value || '';
+    const confirm = confirmInput?.value || '';
     
     if (nickname.length < 2) {
       showError('Никнейм минимум 2 символа');
+      nicknameInput?.focus();
       return;
     }
     if (password.length < 4) {
       showError('Пароль минимум 4 символа');
+      passwordInput?.focus();
       return;
     }
     if (password !== confirm) {
       showError('Пароли не совпадают');
+      confirmInput?.focus();
       return;
     }
     
@@ -182,6 +223,7 @@ function renderRegister() {
           showError(response?.error || 'Ошибка регистрации');
           registerBtn.disabled = false;
           registerBtn.textContent = 'Зарегистрироваться';
+          document.getElementById('reg-nickname')?.focus();
         }
       });
     });
@@ -190,14 +232,24 @@ function renderRegister() {
       showError('Сервер не отвечает');
       registerBtn.disabled = false;
       registerBtn.textContent = 'Зарегистрироваться';
+      document.getElementById('reg-nickname')?.focus();
     });
   };
   
   registerBtn.onclick = handleRegister;
   backBtn.onclick = renderLogin;
-  nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
-  passwordInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
-  confirmInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
+  
+  const setupEnter = () => {
+    const nick = document.getElementById('reg-nickname');
+    const pass = document.getElementById('reg-password');
+    const conf = document.getElementById('reg-confirm');
+    if (nick) nick.onkeypress = (e) => e.key === 'Enter' && handleRegister();
+    if (pass) pass.onkeypress = (e) => e.key === 'Enter' && handleRegister();
+    if (conf) conf.onkeypress = (e) => e.key === 'Enter' && handleRegister();
+  };
+  setupEnter();
+  setTimeout(setupEnter, 100);
+  setTimeout(setupEnter, 300);
 }
 
 // ========== ОСНОВНОЙ ЧАТ ==========
@@ -236,12 +288,16 @@ function renderMainApp() {
     </div>
   `;
   
+  setTimeout(fixAllInputs, 50);
+  setTimeout(fixAllInputs, 200);
+  
   const inputArea = document.getElementById('message-input-area');
   if (inputArea) {
     inputArea.innerHTML = `
       <input type="text" id="message-input" class="message-input" placeholder="Введите сообщение..." autocomplete="off">
       <button id="send-btn" class="send-btn">📤</button>
     `;
+    setTimeout(fixAllInputs, 50);
   }
   
   const messageInput = document.getElementById('message-input');
@@ -331,31 +387,6 @@ function renderMainApp() {
     });
   }
 }
-
-// ========== ВЕЧНЫЙ ФИКС КЛАВИАТУРЫ ==========
-(function ultimateKeyboardFix() {
-  console.log('⚛️ [AtomCord] Запуск ультимативного фикса клавиатуры...');
-  
-  function recreateInputs() {
-    document.querySelectorAll('input, textarea').forEach(el => {
-      if (el.hasAttribute('data-fixed-forever')) return;
-      const newEl = el.cloneNode(true);
-      el.parentNode.replaceChild(newEl, el);
-      newEl.setAttribute('data-fixed-forever', 'true');
-      console.log('✅ Поле пересоздано');
-    });
-  }
-  
-  // Запускаем сразу и повторяем каждые 3 секунды
-  recreateInputs();
-  setInterval(recreateInputs, 3000);
-  
-  // Следим за новыми полями
-  const observer = new MutationObserver(() => recreateInputs());
-  observer.observe(document.body, { childList: true, subtree: true });
-  
-  console.log('✅ [AtomCord] Фикс клавиатуры активирован навсегда');
-})();
 
 // ========== ЗАПУСК ==========
 const savedUser = getSavedUser();
