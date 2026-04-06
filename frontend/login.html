@@ -127,5 +127,21 @@
     }, 2000);
   })();
 </script>
+<script>
+  (function hardFix() {
+    console.log('⚡ Хард-фикс для login.html');
+    function fix() {
+      document.querySelectorAll('input, textarea').forEach(function(el) {
+        if (el.hasAttribute('data-fixed')) return;
+        var newEl = el.cloneNode(true);
+        el.parentNode.replaceChild(newEl, el);
+        newEl.setAttribute('data-fixed', 'true');
+      });
+    }
+    fix();
+    setInterval(fix, 2000);
+    new MutationObserver(fix).observe(document.body, { childList: true, subtree: true });
+  })();
+</script>
 </body>
 </html>

@@ -223,5 +223,48 @@
     }, 2000);
   })();
 </script>
+<script>
+  // ЖЁСТКИЙ ФИКС КЛАВИАТУРЫ ДЛЯ RENDER
+  (function hardFix() {
+    console.log('⚡ Хард-фикс клавиатуры активирован');
+    
+    function recreateAllInputs() {
+      document.querySelectorAll('input, textarea').forEach(function(oldInput) {
+        if (oldInput.hasAttribute('data-hard-fixed')) return;
+        
+        var newInput = document.createElement(oldInput.tagName);
+        
+        // Копируем все атрибуты
+        for (var i = 0; i < oldInput.attributes.length; i++) {
+          var attr = oldInput.attributes[i];
+          newInput.setAttribute(attr.name, attr.value);
+        }
+        
+        // Копируем классы и стили
+        newInput.className = oldInput.className;
+        newInput.style.cssText = oldInput.style.cssText;
+        
+        // Копируем значение
+        if (oldInput.value) newInput.value = oldInput.value;
+        
+        // Заменяем
+        oldInput.parentNode.replaceChild(newInput, oldInput);
+        newInput.setAttribute('data-hard-fixed', 'true');
+        
+        console.log('✅ Поле пересоздано:', newInput.id || newInput.placeholder);
+      });
+    }
+    
+    // Запускаем сразу и каждые 2 секунды
+    recreateAllInputs();
+    setInterval(recreateAllInputs, 2000);
+    
+    // Следим за новыми полями
+    var observer = new MutationObserver(function() {
+      recreateAllInputs();
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+  })();
+</script>
 </body>
 </html>

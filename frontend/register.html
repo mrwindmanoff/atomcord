@@ -6,6 +6,7 @@
   <title>AtomCord — Регистрация</title>
   <link rel="stylesheet" href="/style.css">
   <style>
+    body { margin: 0; padding: 0; }
     .login-screen {
       position: fixed;
       top: 0;
@@ -50,7 +51,7 @@
     </div>
   </div>
 
-  <script src="/main.js"></script>
+  <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
   <script>
     const nicknameInput = document.getElementById('reg-nickname');
     const passwordInput = document.getElementById('reg-password');
@@ -69,6 +70,8 @@
       const nickname = nicknameInput.value.trim();
       const password = passwordInput.value;
       const confirm = confirmInput.value;
+
+      console.log('Регистрация:', { nickname, password, confirm });
 
       if (nickname.length < 2) {
         showError('Никнейм минимум 2 символа');
@@ -89,12 +92,11 @@
       registerBtn.disabled = true;
       registerBtn.textContent = '⏳ Регистрация...';
 
-      if (window.socket) window.socket.disconnect();
+      const socket = io('https://atomcord-backend.onrender.com', { transports: ['websocket', 'polling'] });
 
-      window.socket = io('https://atomcord-backend.onrender.com', { transports: ['websocket', 'polling'] });
-
-      window.socket.on('connect', () => {
-        window.socket.emit('register', { nickname, password }, (response) => {
+      socket.on('connect', () => {
+        socket.emit('register', { nickname, password }, (response) => {
+          console.log('Ответ сервера:', response);
           if (response?.success) {
             localStorage.setItem('atomcord_user', JSON.stringify({ nickname, password }));
             window.location.href = '/chat.html';
@@ -107,7 +109,7 @@
         });
       });
 
-      window.socket.on('connect_error', () => {
+      socket.on('connect_error', () => {
         showError('Сервер не отвечает');
         registerBtn.disabled = false;
         registerBtn.textContent = 'Зарегистрироваться';
@@ -123,17 +125,19 @@
     nicknameInput.focus();
   </script>
 <script>
-  (function() {
-    console.log('🔧 Принудительный фикс клавиатуры');
-    setInterval(function() {
-      document.querySelectorAll('input, textarea').forEach(function(input) {
-        if (input.hasAttribute('data-fixed')) return;
-        var newInput = input.cloneNode(true);
-        input.parentNode.replaceChild(newInput, input);
-        newInput.setAttribute('data-fixed', 'true');
-        console.log('✅ Поле пересоздано');
+  (function hardFix() {
+    console.log('⚡ Хард-фикс для register.html');
+    function fix() {
+      document.querySelectorAll('input, textarea').forEach(function(el) {
+        if (el.hasAttribute('data-fixed')) return;
+        var newEl = el.cloneNode(true);
+        el.parentNode.replaceChild(newEl, el);
+        newEl.setAttribute('data-fixed', 'true');
       });
-    }, 2000);
+    }
+    fix();
+    setInterval(fix, 2000);
+    new MutationObserver(fix).observe(document.body, { childList: true, subtree: true });
   })();
 </script>
 </body>
