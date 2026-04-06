@@ -133,25 +133,31 @@ function renderMainApp() {
           <h2 id="channel-name"># general</h2>
         </div>
         <div class="messages-container" id="messages-container"></div>
-        <div class="message-input-area">
-          <input type="text" id="message-input" class="message-input" placeholder="Введите сообщение..." autocomplete="off">
-          <button id="send-btn" class="send-btn">📤</button>
+        <div class="message-input-area" id="message-input-area">
+          <!-- Старый инпут не используем -->
         </div>
       </div>
     </div>
   `;
   
-  // === КЛЮЧЕВОЕ: принудительный фокус ===
+  // СОЗДАЁМ НОВЫЙ ИНПУТ ПРЯМО ЗДЕСЬ (гарантированно работает)
+  const inputArea = document.getElementById('message-input-area');
+  if (inputArea) {
+    inputArea.innerHTML = `
+      <input type="text" id="message-input" class="message-input" placeholder="Введите сообщение..." autocomplete="off" style="pointer-events:auto; opacity:1; z-index:9999;">
+      <button id="send-btn" class="send-btn">📤</button>
+    `;
+  }
+  
   const messageInput = document.getElementById('message-input');
   const sendBtn = document.getElementById('send-btn');
   
   if (messageInput) {
-    // Убираем все возможные блокировки
-    messageInput.removeAttribute('disabled');
-    messageInput.removeAttribute('readonly');
-    messageInput.tabIndex = 0;
+    // Принудительно снимаем блокировки
+    messageInput.style.pointerEvents = 'auto';
+    messageInput.disabled = false;
+    messageInput.readOnly = false;
     
-    // Обработчик ввода
     messageInput.onkeypress = (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -163,11 +169,11 @@ function renderMainApp() {
       }
     };
     
-    // ПРИНУДИТЕЛЬНЫЙ ФОКУС
+    // Фокус с задержкой
     setTimeout(() => {
       messageInput.focus();
-      console.log('✅ Инпут сфокусирован');
-    }, 200);
+      console.log('✅ Инпут создан и сфокусирован');
+    }, 100);
   }
   
   if (sendBtn) {
@@ -181,16 +187,15 @@ function renderMainApp() {
     };
   }
   
+  // Остальные обработчики...
   document.getElementById('logout-btn')?.addEventListener('click', () => {
     socket.disconnect();
     clearSavedUser();
     renderLogin();
   });
   
-  // Загрузка истории
   socket.emit('join-text-channel', 'general');
   
-  // Обработка сообщений
   socket.on('channel-history', ({ messages }) => {
     const container = document.getElementById('messages-container');
     if (container) {
