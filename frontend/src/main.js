@@ -6,7 +6,6 @@ import './style.css';
 let currentUser = null;
 let socket = null;
 
-// Сохраняем пользователя
 function saveUser(user) {
   localStorage.setItem('atomcord_user', JSON.stringify(user));
 }
@@ -31,26 +30,26 @@ function render() {
   const app = document.getElementById('app');
   
   if (!currentUser) {
-    LoginPage.render(app, handleLogin);
+    LoginPage.render(app, handleAuth);
   } else {
     MainApp.render(app, socket, currentUser, handleLogout);
   }
 }
 
-function handleLogin(nickname) {
+function handleAuth(nickname, password, savedToken, mode = 'login') {
   return new Promise((resolve, reject) => {
-    // Если есть сохранённый пользователь с таким же ником
-    const saved = getSavedUser();
-    if (saved && saved.nickname === nickname) {
-      currentUser = saved;
+    // Если есть сохранённый токен, пробуем восстановить сессию
+    if (savedToken) {
+      // TODO: проверить токен на сервере
+      currentUser = { nickname, token: savedToken };
       render();
       resolve();
       return;
     }
     
-    socket = initSocket(nickname, (userData) => {
+    socket = initSocket(nickname, password, (userData) => {
       currentUser = userData;
-      saveUser(userData);
+      saveUser({ ...userData, password });
       render();
       resolve();
     }, (error) => {
@@ -69,19 +68,4 @@ function handleLogout() {
   render();
 }
 
-// Проверяем сохранённого пользователя при загрузке
-const savedUser = getSavedUser();
-if (savedUser && savedUser.nickname) {
-  // Переподключаемся с сохранённым ником
-  socket = initSocket(savedUser.nickname, (userData) => {
-    currentUser = userData;
-    saveUser(userData);
-    render();
-  }, () => {
-    // Если не получилось — показываем логин
-    currentUser = null;
-    render();
-  });
-} else {
-  render();
-}
+render();
