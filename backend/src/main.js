@@ -4,7 +4,7 @@ import { handleMessages } from './handlers/message.js';
 import { handleVoice } from './handlers/voice.js';
 import { handleDisconnect } from './handlers/disconnect.js';
 import { handleChannels } from './handlers/channel.js';
-import { handleServers } from './handlers/server.js'; // НОВЫЙ ИМПОРТ
+import { handleServers } from './handlers/server.js';
 
 const PORT = process.env.PORT || 4000;
 
@@ -15,7 +15,7 @@ io.on('connection', (socket) => {
   handleMessages(socket);
   handleVoice(socket);
   handleChannels(socket);
-  handleServers(socket); // НОВЫЙ ОБРАБОТЧИК
+  handleServers(socket);
   handleDisconnect(socket);
 });
 

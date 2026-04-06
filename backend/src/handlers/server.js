@@ -1,14 +1,63 @@
 import { io } from '../server.js';
 import { getUser } from '../store/users.js';
-import { 
-  createServer, 
-  createChannel, 
-  deleteChannel,
-  getUserServers,
-  getServerChannels,
-  addUserToServer,
-  canViewChannel
-} from '../store/servers.js';
+
+// Хранилище серверов (в памяти)
+const servers = new Map(); // serverId -> { id, name, ownerId, channels, members }
+let nextServerId = 1;
+let nextChannelId = 1;
+
+// Создание сервера
+export function createServer(name, ownerId) {
+  const id = `server_${nextServerId++}`;
+  const server = {
+    id,
+    name,
+    ownerId,
+    channels: [],
+    members: new Set([ownerId]),
+    createdAt: Date.now()
+  };
+  
+  // Создаём стандартные каналы
+  server.channels.push({
+    id: `channel_${nextChannelId++}`,
+    name: 'Общий',
+    type: 'text',
+    serverId: id
+  });
+  server.channels.push({
+    id: `channel_${nextChannelId++}`,
+    name: 'Голосовой штаб',
+    type: 'voice',
+    serverId: id
+  });
+  
+  servers.set(id, server);
+  return server;
+}
+
+// Получить все сервера пользователя
+export function getUserServers(userId) {
+  const userServers = [];
+  for (const server of servers.values()) {
+    if (server.members.has(userId)) {
+      userServers.push({
+        id: server.id,
+        name: server.name,
+        channels: server.channels
+      });
+    }
+  }
+  return userServers;
+}
+
+// Добавить пользователя в сервер
+export function addUserToServer(serverId, userId) {
+  const server = servers.get(serverId);
+  if (server) {
+    server.members.add(userId);
+  }
+}
 
 export function handleServers(socket) {
   
@@ -21,10 +70,13 @@ export function handleServers(socket) {
     }
     
     const server = createServer(name, user.id);
-    addUserToServer(server.id, user.id);
+    socket.emit('server-created', {
+      id: server.id,
+      name: server.name,
+      channels: server.channels
+    });
     
-    socket.emit('server-created', server);
-    callback({ success: true, server });
+    callback({ success: true, server: { id: server.id, name: server.name } });
   });
   
   // Получить все сервера пользователя
@@ -32,46 +84,8 @@ export function handleServers(socket) {
     const user = getUser(socket.id);
     if (!user) return;
     
-    const servers = getUserServers(user.id);
-    callback(servers);
-  });
-  
-  // Получить каналы сервера
-  socket.on('get-server-channels', ({ serverId }, callback) => {
-    const user = getUser(socket.id);
-    if (!user) return;
-    
-    const channels = getServerChannels(serverId, user.id);
-    callback(channels);
-  });
-  
-  // Создание канала в сервере
-  socket.on('create-channel', ({ serverId, name, type }, callback) => {
-    const user = getUser(socket.id);
-    if (!user) return;
-    
-    const channel = createChannel(serverId, name, type, user.id);
-    if (channel) {
-      // Оповещаем всех в сервере
-      io.to(`server:${serverId}`).emit('channel-created', channel);
-      callback({ success: true, channel });
-    } else {
-      callback({ success: false, error: 'Не удалось создать канал' });
-    }
-  });
-  
-  // Удаление канала
-  socket.on('delete-channel', ({ channelId }, callback) => {
-    const user = getUser(socket.id);
-    if (!user) return;
-    
-    const success = deleteChannel(channelId, user.id);
-    if (success) {
-      io.emit('channel-deleted', { channelId });
-      callback({ success: true });
-    } else {
-      callback({ success: false, error: 'Нет прав' });
-    }
+    const userServers = getUserServers(user.id);
+    callback(userServers);
   });
   
   // Присоединение к серверу
@@ -82,6 +96,38 @@ export function handleServers(socket) {
     socket.join(`server:${serverId}`);
     addUserToServer(serverId, user.id);
     
+    // Отправляем каналы сервера
+    const server = servers.get(serverId);
+    if (server) {
+      socket.emit('server-channels', server.channels);
+    }
+    
     callback({ success: true });
+  });
+  
+  // Создание канала в сервере
+  socket.on('create-channel', ({ serverId, name, type }, callback) => {
+    const user = getUser(socket.id);
+    if (!user) return;
+    
+    const server = servers.get(serverId);
+    if (!server) {
+      callback({ success: false, error: 'Сервер не найден' });
+      return;
+    }
+    
+    const newChannel = {
+      id: `channel_${nextChannelId++}`,
+      name: name.trim(),
+      type,
+      serverId
+    };
+    
+    server.channels.push(newChannel);
+    
+    // Оповещаем всех в сервере
+    io.to(`server:${serverId}`).emit('channel-created', newChannel);
+    
+    callback({ success: true, channel: newChannel });
   });
 }

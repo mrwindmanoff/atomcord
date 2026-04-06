@@ -5,30 +5,28 @@ import { UserList } from '../components/UserList.js';
 
 export const MainApp = {
   render(container, socket, currentUser, onLogout) {
-    // Защита от null socket
     if (!socket) {
-      console.error('❌ Socket не инициализирован');
-      container.innerHTML = '<div style="padding:20px; text-align:center;">Ошибка подключения. Перезагрузите страницу.</div>';
+      container.innerHTML = '<div style="padding:20px;">Ошибка подключения</div>';
       return;
     }
     
-    let currentChannel = { id: 'general', name: 'Общий', type: 'text' };
+    let servers = [];
+    let currentServer = null;
+    let currentChannel = null;
     let messagesCache = {};
     let onlineUsers = [];
-    let channels = [
-      { id: 'general', name: 'Общий', type: 'text' },
-      { id: 'random', name: 'Случайный', type: 'text' },
-      { id: 'voice-lobby', name: 'Главный штаб', type: 'voice' }
-    ];
     
     function renderUI() {
       container.innerHTML = `
         <div class="sidebar-container"></div>
         <div class="main-container">
           <div class="chat-header">
-            <h2>${currentChannel.type === 'voice' ? '🎙️' : '#'} ${currentChannel.name}</h2>
+            <h2>
+              ${currentChannel?.type === 'voice' ? '🎙️' : '#'} 
+              ${currentChannel?.name || 'Выберите канал'}
+            </h2>
             <div class="chat-header-actions">
-              <span style="font-size:12px; color:#888; margin-right:12px;">${escapeHtml(currentUser.nickname)}</span>
+              <span style="font-size:12px; color:#888;">${currentUser.nickname}</span>
               <button id="logout-btn" class="logout-button" title="Выйти">🚪</button>
             </div>
           </div>
@@ -39,23 +37,23 @@ export const MainApp = {
       `;
       
       const sidebarContainer = container.querySelector('.sidebar-container');
-      Sidebar.render(sidebarContainer, channels, currentChannel.id, onChannelChange, socket);
+      Sidebar.render(sidebarContainer, servers, currentServer, currentChannel, onServerClick, onChannelClick, socket);
       
       const chatAreaContainer = container.querySelector('.chat-area-container');
-      if (currentChannel.type === 'text') {
+      if (currentChannel && currentChannel.type === 'text') {
         ChatArea.render(chatAreaContainer, currentChannel, messagesCache[currentChannel.id] || [], socket);
       } else {
         chatAreaContainer.innerHTML = `
           <div class="voice-placeholder">
             <div class="voice-placeholder-icon">🎙️</div>
-            <h3>Ты в голосовом канале</h3>
+            <h3>Голосовой канал</h3>
             <p>Нажми "Подключиться" чтобы начать разговор</p>
           </div>
         `;
       }
       
       const voicePanelContainer = container.querySelector('.voice-panel-container');
-      if (currentChannel.type === 'voice') {
+      if (currentChannel && currentChannel.type === 'voice') {
         VoicePanel.render(voicePanelContainer, currentChannel, socket);
       } else {
         voicePanelContainer.innerHTML = '';
@@ -64,19 +62,26 @@ export const MainApp = {
       const userlistContainer = container.querySelector('.userlist-container');
       UserList.render(userlistContainer, onlineUsers);
       
-      const logoutBtn = document.getElementById('logout-btn');
-      if (logoutBtn) {
-        logoutBtn.addEventListener('click', onLogout);
-      }
+      document.getElementById('logout-btn')?.addEventListener('click', onLogout);
       
-      // Проверяем socket перед emit
-      if (socket && currentChannel.type === 'text') {
+      if (currentChannel && currentChannel.type === 'text') {
         socket.emit('join-text-channel', currentChannel.id);
       }
     }
     
-    function onChannelChange(channelId) {
-      const channel = channels.find(c => c.id === channelId);
+    async function onServerClick(serverId) {
+      currentServer = servers.find(s => s.id === serverId);
+      if (currentServer) {
+        socket.emit('join-server', { serverId }, (response) => {
+          if (response.success) {
+            // Каналы придут через событие server-channels
+          }
+        });
+      }
+    }
+    
+    function onChannelClick(channelId, channelType) {
+      const channel = currentServer?.channels?.find(c => c.id === channelId);
       if (channel) {
         currentChannel = channel;
         renderUI();
@@ -84,40 +89,49 @@ export const MainApp = {
     }
     
     function setupSocketEvents() {
-      if (!socket) return;
-      
-      socket.on('channels-list', (channelsList) => {
-        channels = channelsList;
-        renderUI();
-      });
-      
-      socket.on('channel-created', (newChannel) => {
-        channels.push(newChannel);
-        renderUI();
-      });
-      
-      socket.on('channel-deleted', ({ channelId }) => {
-        channels = channels.filter(c => c.id !== channelId);
-        if (currentChannel.id === channelId) {
-          currentChannel = channels.find(c => c.type === 'text') || channels[0];
+      socket.on('servers-list', (serversList) => {
+        servers = serversList;
+        if (servers.length > 0 && !currentServer) {
+          onServerClick(servers[0].id);
         }
         renderUI();
       });
       
+      socket.on('server-created', (newServer) => {
+        servers.push(newServer);
+        renderUI();
+      });
+      
+      socket.on('server-channels', (channels) => {
+        if (currentServer) {
+          currentServer.channels = channels;
+          if (channels.length > 0 && !currentChannel) {
+            currentChannel = channels[0];
+          }
+          renderUI();
+        }
+      });
+      
+      socket.on('channel-created', (newChannel) => {
+        if (currentServer && newChannel.serverId === currentServer.id) {
+          if (!currentServer.channels) currentServer.channels = [];
+          currentServer.channels.push(newChannel);
+          renderUI();
+        }
+      });
+      
       socket.on('channel-history', ({ channelId, messages }) => {
         messagesCache[channelId] = messages;
-        if (currentChannel.id === channelId && currentChannel.type === 'text') {
+        if (currentChannel?.id === channelId) {
           const chatAreaContainer = document.querySelector('.chat-area-container');
-          if (chatAreaContainer) {
-            ChatArea.render(chatAreaContainer, currentChannel, messages, socket);
-          }
+          ChatArea.render(chatAreaContainer, currentChannel, messages, socket);
         }
       });
       
       socket.on('new-message', (message) => {
         if (!messagesCache[message.channelId]) messagesCache[message.channelId] = [];
         messagesCache[message.channelId].push(message);
-        if (currentChannel.id === message.channelId && currentChannel.type === 'text') {
+        if (currentChannel?.id === message.channelId) {
           ChatArea.appendMessage(message);
         }
       });
@@ -127,53 +141,18 @@ export const MainApp = {
         const userlistContainer = document.querySelector('.userlist-container');
         if (userlistContainer) UserList.render(userlistContainer, onlineUsers);
       });
-      
-      socket.on('user-joined', ({ nickname }) => {
-        const chatAreaContainer = document.querySelector('.chat-area-container');
-        if (chatAreaContainer && currentChannel.type === 'text') {
-          const sysDiv = document.createElement('div');
-          sysDiv.className = 'system-message';
-          sysDiv.textContent = `⚡ ${escapeHtml(nickname)} присоединился`;
-          const messagesContainer = chatAreaContainer.querySelector('#messages-container');
-          if (messagesContainer) {
-            messagesContainer.appendChild(sysDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-          }
-        }
-      });
-      
-      socket.on('user-left', ({ nickname }) => {
-        const chatAreaContainer = document.querySelector('.chat-area-container');
-        if (chatAreaContainer && currentChannel.type === 'text') {
-          const sysDiv = document.createElement('div');
-          sysDiv.className = 'system-message';
-          sysDiv.textContent = `⚡ ${escapeHtml(nickname)} покинул`;
-          const messagesContainer = chatAreaContainer.querySelector('#messages-container');
-          if (messagesContainer) {
-            messagesContainer.appendChild(sysDiv);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-          }
-        }
-      });
-      
-      socket.on('error', (error) => {
-        console.error('Socket error:', error);
-      });
     }
     
-    function escapeHtml(str) {
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
-    }
+    socket.emit('get-servers', (serversList) => {
+      servers = serversList;
+      if (servers.length > 0 && !currentServer) {
+        onServerClick(servers[0].id);
+      }
+      renderUI();
+    });
+    socket.emit('get-users');
     
-    // Проверяем socket перед emit
-    if (socket) {
-      socket.emit('get-channels');
-      socket.emit('get-users');
-      setupSocketEvents();
-    }
-    
+    setupSocketEvents();
     renderUI();
   }
 };
