@@ -59,35 +59,18 @@ function renderLogin() {
   const registerBtn = document.getElementById('go-to-register-btn');
   const errorDiv = document.getElementById('error');
   
-  // Принудительный фокус и удаление старых обработчиков
-  const setFocus = () => {
-    if (nicknameInput) {
-      nicknameInput.focus();
-      console.log('✅ Фокус на nicknameInput');
-    }
-  };
-  
-  // Удаляем старые обработчики, чтобы не было дублей
-  document.removeEventListener('keydown', window._loginKeyHandler);
-  
-  // Создаём новый обработчик для страницы входа
-  window._loginKeyHandler = (e) => {
-    const active = document.activeElement;
-    if (active === nicknameInput || active === passwordInput) {
-      // Уже в поле ввода, ничего не делаем
-      return;
-    }
-    // Если нажата буква или цифра - фокусируем на nicknameInput
-    if (e.key.length === 1 && /[a-zA-Z0-9а-яА-Я]/.test(e.key)) {
-      nicknameInput.focus();
-    }
-  };
-  
-  document.addEventListener('keydown', window._loginKeyHandler);
-  
-  setTimeout(setFocus, 100);
-  setTimeout(setFocus, 300);
-  setTimeout(setFocus, 500);
+  // Фокус на поле ввода
+  if (nicknameInput) {
+    nicknameInput.focus();
+    nicknameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleLogin();
+    });
+  }
+  if (passwordInput) {
+    passwordInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleLogin();
+    });
+  }
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -101,10 +84,12 @@ function renderLogin() {
     
     if (nickname.length < 2) {
       showError('Никнейм минимум 2 символа');
+      nicknameInput.focus();
       return;
     }
     if (password.length < 4) {
       showError('Пароль минимум 4 символа');
+      passwordInput.focus();
       return;
     }
     
@@ -120,14 +105,12 @@ function renderLogin() {
         if (response?.success) {
           currentUser = { nickname, userId: response.userId };
           saveUser({ nickname, password });
-          // Убираем обработчик перед переходом
-          document.removeEventListener('keydown', window._loginKeyHandler);
           renderMainApp();
         } else {
           showError(response?.error || 'Ошибка входа');
           loginBtn.disabled = false;
           loginBtn.textContent = 'Войти';
-          setTimeout(() => nicknameInput.focus(), 100);
+          nicknameInput.focus();
         }
       });
     });
@@ -136,28 +119,12 @@ function renderLogin() {
       showError('Сервер не отвечает');
       loginBtn.disabled = false;
       loginBtn.textContent = 'Войти';
-      setTimeout(() => nicknameInput.focus(), 100);
+      nicknameInput.focus();
     });
   };
   
   loginBtn.onclick = handleLogin;
-  registerBtn.onclick = () => {
-    document.removeEventListener('keydown', window._loginKeyHandler);
-    renderRegister();
-  };
-  
-  // Обработка Enter через глобальный обработчик
-  window._loginEnterHandler = (e) => {
-    if (e.key === 'Enter') {
-      const nickname = nicknameInput?.value.trim();
-      const password = passwordInput?.value;
-      if (nickname && password) {
-        handleLogin();
-      }
-    }
-  };
-  document.removeEventListener('keydown', window._loginEnterHandler);
-  document.addEventListener('keydown', window._loginEnterHandler);
+  registerBtn.onclick = () => renderRegister();
 }
 
 // ========== СТРАНИЦА РЕГИСТРАЦИИ ==========
@@ -185,31 +152,22 @@ function renderRegister() {
   const backBtn = document.getElementById('back-to-login-btn');
   const errorDiv = document.getElementById('error');
   
-  const setFocus = () => {
-    if (nicknameInput) {
-      nicknameInput.focus();
-      console.log('✅ Фокус на reg-nicknameInput');
-    }
-  };
-  
-  // Удаляем старые обработчики
-  document.removeEventListener('keydown', window._regKeyHandler);
-  
-  window._regKeyHandler = (e) => {
-    const active = document.activeElement;
-    if (active === nicknameInput || active === passwordInput || active === confirmInput) {
-      return;
-    }
-    if (e.key.length === 1 && /[a-zA-Z0-9а-яА-Я]/.test(e.key)) {
-      nicknameInput.focus();
-    }
-  };
-  
-  document.addEventListener('keydown', window._regKeyHandler);
-  
-  setTimeout(setFocus, 100);
-  setTimeout(setFocus, 300);
-  setTimeout(setFocus, 500);
+  if (nicknameInput) {
+    nicknameInput.focus();
+    nicknameInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleRegister();
+    });
+  }
+  if (passwordInput) {
+    passwordInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleRegister();
+    });
+  }
+  if (confirmInput) {
+    confirmInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleRegister();
+    });
+  }
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -224,14 +182,17 @@ function renderRegister() {
     
     if (nickname.length < 2) {
       showError('Никнейм минимум 2 символа');
+      nicknameInput.focus();
       return;
     }
     if (password.length < 4) {
       showError('Пароль минимум 4 символа');
+      passwordInput.focus();
       return;
     }
     if (password !== confirm) {
       showError('Пароли не совпадают');
+      confirmInput.focus();
       return;
     }
     
@@ -247,13 +208,12 @@ function renderRegister() {
         if (response?.success) {
           currentUser = { nickname, userId: response.userId };
           saveUser({ nickname, password });
-          document.removeEventListener('keydown', window._regKeyHandler);
           renderMainApp();
         } else {
           showError(response?.error || 'Ошибка регистрации');
           registerBtn.disabled = false;
           registerBtn.textContent = 'Зарегистрироваться';
-          setTimeout(() => nicknameInput.focus(), 100);
+          nicknameInput.focus();
         }
       });
     });
@@ -262,24 +222,12 @@ function renderRegister() {
       showError('Сервер не отвечает');
       registerBtn.disabled = false;
       registerBtn.textContent = 'Зарегистрироваться';
-      setTimeout(() => nicknameInput.focus(), 100);
+      nicknameInput.focus();
     });
   };
   
   registerBtn.onclick = handleRegister;
-  backBtn.onclick = () => {
-    document.removeEventListener('keydown', window._regKeyHandler);
-    renderLogin();
-  };
-  
-  // Глобальный Enter
-  window._regEnterHandler = (e) => {
-    if (e.key === 'Enter') {
-      handleRegister();
-    }
-  };
-  document.removeEventListener('keydown', window._regEnterHandler);
-  document.addEventListener('keydown', window._regEnterHandler);
+  backBtn.onclick = renderLogin;
 }
 
 // ========== ОСНОВНОЙ ЧАТ ==========
@@ -327,21 +275,7 @@ function renderMainApp() {
   if (messageInput) {
     messageInput.disabled = false;
     messageInput.readOnly = false;
-    
-    // Удаляем старые обработчики
-    document.removeEventListener('keydown', window._chatKeyHandler);
-    
-    window._chatKeyHandler = (e) => {
-      // Если активный элемент не инпут, фокусируем на messageInput
-      const active = document.activeElement;
-      if (active !== messageInput && !active?.classList?.contains('message-input')) {
-        if (e.key.length === 1 && /[a-zA-Z0-9а-яА-Я]/.test(e.key)) {
-          messageInput.focus();
-        }
-      }
-    };
-    
-    document.addEventListener('keydown', window._chatKeyHandler);
+    messageInput.focus();
     
     messageInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
@@ -353,14 +287,6 @@ function renderMainApp() {
         }
       }
     });
-    
-    const setFocus = () => {
-      messageInput.focus();
-      console.log('✅ Фокус на messageInput');
-    };
-    setTimeout(setFocus, 200);
-    setTimeout(setFocus, 500);
-    setTimeout(setFocus, 1000);
   }
   
   if (sendBtn) {
@@ -377,7 +303,6 @@ function renderMainApp() {
   const logoutBtn = document.getElementById('logout-btn');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', () => {
-      document.removeEventListener('keydown', window._chatKeyHandler);
       if (socket) socket.disconnect();
       clearSavedUser();
       renderLogin();
