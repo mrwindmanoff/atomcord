@@ -61,9 +61,12 @@ function renderLogin() {
   const registerBtn = document.getElementById('go-to-register-btn');
   const errorDiv = document.getElementById('error');
   
-  // ПРОСТОЙ ФОКУС
-  setTimeout(() => nicknameInput?.focus(), 100);
-  setTimeout(() => nicknameInput?.focus(), 300);
+  // ТОЛЬКО ФОКУС, БЕЗ ПЕРЕСОЗДАНИЯ
+  const doFocus = () => {
+    if (nicknameInput) nicknameInput.focus();
+  };
+  doFocus();
+  setTimeout(doFocus, 300);
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -149,9 +152,13 @@ function renderRegister() {
   const backBtn = document.getElementById('back-to-login-btn');
   const errorDiv = document.getElementById('error');
   
-  setTimeout(() => nicknameInput?.focus(), 100);
-  setTimeout(() => nicknameInput?.focus(), 300);
-  setTimeout(() => nicknameInput?.focus(), 500);
+  // ТОЛЬКО ФОКУС
+  const doFocus = () => {
+    if (nicknameInput) nicknameInput.focus();
+  };
+  doFocus();
+  setTimeout(doFocus, 300);
+  setTimeout(doFocus, 600);
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -265,9 +272,13 @@ function renderMainApp() {
   const sendBtn = document.getElementById('send-btn');
   
   if (messageInput) {
-    setTimeout(() => messageInput.focus(), 200);
-    setTimeout(() => messageInput.focus(), 500);
-    setTimeout(() => messageInput.focus(), 1000);
+    const doFocus = () => {
+      messageInput.focus();
+    };
+    doFocus();
+    setTimeout(doFocus, 300);
+    setTimeout(doFocus, 600);
+    setTimeout(doFocus, 1000);
     
     messageInput.onkeypress = (e) => {
       if (e.key === 'Enter') {
@@ -276,7 +287,7 @@ function renderMainApp() {
         if (text && socket) {
           socket.emit('send-message', { channelId: currentChannel.id, text });
           messageInput.value = '';
-          messageInput.focus();
+          doFocus();
         }
       }
     };
