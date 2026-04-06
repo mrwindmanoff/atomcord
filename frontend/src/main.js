@@ -61,7 +61,17 @@ function renderLogin() {
   const registerBtn = document.getElementById('go-to-register-btn');
   const errorDiv = document.getElementById('error');
   
-  if (nicknameInput) nicknameInput.focus();
+  // ПРИНУДИТЕЛЬНЫЙ ФОКУС (как в прошлый раз работало)
+  const setFocus = () => {
+    if (nicknameInput) {
+      nicknameInput.focus();
+      console.log('✅ Фокус на nicknameInput');
+    }
+  };
+  
+  setTimeout(setFocus, 100);
+  setTimeout(setFocus, 300);
+  setTimeout(setFocus, 500);
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -99,6 +109,7 @@ function renderLogin() {
           showError(response?.error || 'Ошибка входа');
           loginBtn.disabled = false;
           loginBtn.textContent = 'Войти';
+          setTimeout(() => nicknameInput.focus(), 100);
         }
       });
     });
@@ -107,13 +118,24 @@ function renderLogin() {
       showError('Сервер не отвечает');
       loginBtn.disabled = false;
       loginBtn.textContent = 'Войти';
+      setTimeout(() => nicknameInput.focus(), 100);
     });
   };
   
   loginBtn.onclick = handleLogin;
   registerBtn.onclick = () => renderRegister();
-  nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
-  passwordInput.onkeypress = (e) => e.key === 'Enter' && handleLogin();
+  
+  // Локальный обработчик Enter (без глобального)
+  if (nicknameInput) {
+    nicknameInput.onkeypress = (e) => {
+      if (e.key === 'Enter') handleLogin();
+    };
+  }
+  if (passwordInput) {
+    passwordInput.onkeypress = (e) => {
+      if (e.key === 'Enter') handleLogin();
+    };
+  }
 }
 
 // ========== СТРАНИЦА РЕГИСТРАЦИИ ==========
@@ -143,7 +165,15 @@ function renderRegister() {
   const backBtn = document.getElementById('back-to-login-btn');
   const errorDiv = document.getElementById('error');
   
-  if (nicknameInput) nicknameInput.focus();
+  const setFocus = () => {
+    if (nicknameInput) {
+      nicknameInput.focus();
+      console.log('✅ Фокус на reg-nicknameInput');
+    }
+  };
+  setTimeout(setFocus, 100);
+  setTimeout(setFocus, 300);
+  setTimeout(setFocus, 500);
   
   const showError = (msg) => {
     errorDiv.textContent = msg;
@@ -186,6 +216,7 @@ function renderRegister() {
           showError(response?.error || 'Ошибка регистрации');
           registerBtn.disabled = false;
           registerBtn.textContent = 'Зарегистрироваться';
+          setTimeout(() => nicknameInput.focus(), 100);
         }
       });
     });
@@ -194,11 +225,13 @@ function renderRegister() {
       showError('Сервер не отвечает');
       registerBtn.disabled = false;
       registerBtn.textContent = 'Зарегистрироваться';
+      setTimeout(() => nicknameInput.focus(), 100);
     });
   };
   
   registerBtn.onclick = handleRegister;
   backBtn.onclick = renderLogin;
+  
   nicknameInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
   passwordInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
   confirmInput.onkeypress = (e) => e.key === 'Enter' && handleRegister();
@@ -240,7 +273,7 @@ function renderMainApp() {
     </div>
   `;
   
-  // === СОЗДАЁМ ИНПУТ ===
+  // === СОЗДАЁМ ИНПУТ С ПРИНУДИТЕЛЬНЫМ ФОКУСОМ ===
   const inputArea = document.getElementById('message-input-area');
   if (inputArea) {
     inputArea.innerHTML = `
@@ -249,77 +282,72 @@ function renderMainApp() {
     `;
   }
   
-  // === ПРИВЯЗКА СОБЫТИЙ (через addEventListener) ===
   const messageInput = document.getElementById('message-input');
   const sendBtn = document.getElementById('send-btn');
   
   if (messageInput) {
     messageInput.disabled = false;
     messageInput.readOnly = false;
-    messageInput.focus();
     
-    // Убираем старые обработчики, чтобы не было дублей
-    const newInput = messageInput.cloneNode(true);
-    messageInput.parentNode.replaceChild(newInput, messageInput);
+    // МНОГОКРАТНЫЙ ПРИНУДИТЕЛЬНЫЙ ФОКУС (как в прошлый раз сработало)
+    const setFocus = () => {
+      messageInput.focus();
+      console.log('✅ Фокус на messageInput');
+    };
+    setTimeout(setFocus, 200);
+    setTimeout(setFocus, 500);
+    setTimeout(setFocus, 1000);
+    setTimeout(setFocus, 2000);
     
-    const finalInput = document.getElementById('message-input');
-    if (finalInput) {
-      finalInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          const text = finalInput.value.trim();
-          if (text && socket) {
-            socket.emit('send-message', { channelId: 'general', text });
-            finalInput.value = '';
-          }
+    // Локальный обработчик клавиш (без глобального)
+    messageInput.onkeypress = (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const text = messageInput.value.trim();
+        if (text && socket) {
+          socket.emit('send-message', { channelId: currentChannel.id, text });
+          messageInput.value = '';
+          setFocus();
         }
-      });
-      setTimeout(() => finalInput.focus(), 100);
-    }
+      }
+    };
   }
   
   if (sendBtn) {
-    const newSendBtn = sendBtn.cloneNode(true);
-    sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
-    
-    const finalSendBtn = document.getElementById('send-btn');
-    if (finalSendBtn) {
-      finalSendBtn.addEventListener('click', () => {
-        const input = document.getElementById('message-input');
-        const text = input?.value.trim();
-        if (text && socket) {
-          socket.emit('send-message', { channelId: 'general', text });
-          if (input) input.value = '';
-          input?.focus();
-        }
-      });
-    }
+    sendBtn.onclick = () => {
+      const text = messageInput?.value.trim();
+      if (text && socket) {
+        socket.emit('send-message', { channelId: currentChannel.id, text });
+        if (messageInput) messageInput.value = '';
+        messageInput?.focus();
+      }
+    };
   }
   
   // === ПЕРЕКЛЮЧЕНИЕ КАНАЛОВ ===
   document.querySelectorAll('.channel').forEach(el => {
-    const newEl = el.cloneNode(true);
-    el.parentNode.replaceChild(newEl, el);
-    newEl.addEventListener('click', () => {
-      const channelId = newEl.dataset.channel;
-      const channelName = newEl.innerText.trim();
+    el.onclick = () => {
+      const channelId = el.dataset.channel;
+      const channelName = el.innerText.trim();
       document.getElementById('channel-name').innerHTML = channelName;
       currentChannel.id = channelId;
       currentChannel.name = channelName.replace(/[#🎙️]/g, '').trim();
       socket.emit('join-text-channel', channelId);
-    });
+      setTimeout(() => {
+        const input = document.getElementById('message-input');
+        if (input) input.focus();
+      }, 100);
+    };
   });
   
   // === ВЫХОД ===
   const logoutBtn = document.getElementById('logout-btn');
   if (logoutBtn) {
-    const newLogoutBtn = logoutBtn.cloneNode(true);
-    logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
-    newLogoutBtn.addEventListener('click', () => {
+    logoutBtn.onclick = () => {
       if (socket) socket.disconnect();
       clearSavedUser();
       renderLogin();
-    });
+    };
   }
   
   // === СОКЕТ СОБЫТИЯ ===
