@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>AtomCord — Вход</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .login-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .login-card {
+      background: #1a1a2a;
+      padding: 40px;
+      border-radius: 20px;
+      text-align: center;
+      width: 360px;
+    }
+    .login-logo { font-size: 48px; margin-bottom: 16px; animation: spin 3s linear infinite; display: inline-block; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .login-card h1 { font-size: 28px; margin-bottom: 8px; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .login-subtitle { color: #888; margin-bottom: 24px; font-size: 14px; }
+    .login-input { width: 100%; padding: 14px; margin-bottom: 16px; background: #2a2a3a; border: 2px solid transparent; border-radius: 12px; color: white; font-size: 16px; outline: none; }
+    .login-input:focus { border-color: #5865f2; }
+    .login-button { width: 100%; padding: 14px; background: #5865f2; border: none; border-radius: 12px; color: white; font-weight: 600; cursor: pointer; margin-top: 8px; }
+    .login-button.secondary { background: transparent; border: 1px solid #5865f2; margin-top: 12px; }
+    .error-msg { color: #ed4245; margin-top: 12px; font-size: 12px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="login-screen">
+    <div class="login-card">
+      <div class="login-logo">⚛️</div>
+      <h1>AtomCord</h1>
+      <p class="login-subtitle">Голосовой штаб</p>
+      <input type="text" id="nickname" class="login-input" placeholder="Никнейм" autocomplete="off">
+      <input type="password" id="password" class="login-input" placeholder="Пароль" autocomplete="off">
+      <button id="login-btn" class="login-button">Войти</button>
+      <button id="go-to-register-btn" class="login-button secondary">📝 Создать аккаунт</button>
+      <div id="error" class="error-msg"></div>
+    </div>
+  </div>
+
+  <script src="/main.js"></script>
+  <script>
+    const nicknameInput = document.getElementById('nickname');
+    const passwordInput = document.getElementById('password');
+    const loginBtn = document.getElementById('login-btn');
+    const registerBtn = document.getElementById('go-to-register-btn');
+    const errorDiv = document.getElementById('error');
+
+    const showError = (msg) => {
+      errorDiv.textContent = msg;
+      errorDiv.style.display = 'block';
+      setTimeout(() => errorDiv.style.display = 'none', 3000);
+    };
+
+    window.handleLogin = () => {
+      const nickname = nicknameInput.value.trim();
+      const password = passwordInput.value;
+
+      if (nickname.length < 2) {
+        showError('Никнейм минимум 2 символа');
+        nicknameInput.focus();
+        return;
+      }
+      if (password.length < 4) {
+        showError('Пароль минимум 4 символа');
+        passwordInput.focus();
+        return;
+      }
+
+      loginBtn.disabled = true;
+      loginBtn.textContent = '⏳ Вход...';
+
+      if (window.socket) window.socket.disconnect();
+
+      window.socket = io('https://atomcord-backend.onrender.com', { transports: ['websocket', 'polling'] });
+
+      window.socket.on('connect', () => {
+        window.socket.emit('login', { nickname, password }, (response) => {
+          if (response?.success) {
+            localStorage.setItem('atomcord_user', JSON.stringify({ nickname, password }));
+            window.location.href = '/chat.html';
+          } else {
+            showError(response?.error || 'Ошибка входа');
+            loginBtn.disabled = false;
+            loginBtn.textContent = 'Войти';
+            nicknameInput.focus();
+          }
+        });
+      });
+
+      window.socket.on('connect_error', () => {
+        showError('Сервер не отвечает');
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Войти';
+        nicknameInput.focus();
+      });
+    };
+
+    loginBtn.onclick = window.handleLogin;
+    registerBtn.onclick = () => window.location.href = '/register.html';
+    nicknameInput.onkeypress = (e) => e.key === 'Enter' && window.handleLogin();
+    passwordInput.onkeypress = (e) => e.key === 'Enter' && window.handleLogin();
+    nicknameInput.focus();
+  </script>
+</body>
+</html>
