@@ -38,10 +38,6 @@ function escapeHtml(str) {
 
 // ========== СТРАНИЦА ВХОДА ==========
 function renderLogin() {
-  <div class="login-logo">
-    <span class="logo-atom">⚛️</span>
-    <span class="logo-text">AtomCord</span>
-  </div>
   app.innerHTML = `
     <div class="login-screen">
       <div class="login-card">
@@ -206,10 +202,6 @@ function renderRegister() {
 
 // ========== ОСНОВНОЙ ЧАТ ==========
 function renderMainApp() {
-  <div class="logo">
-    <span class="logo-atom">⚛️</span>
-    <span class="logo-text">AtomCord</span>
-  </div>
   app.innerHTML = `
     <div class="main-layout">
       <div class="sidebar">
@@ -339,6 +331,31 @@ function renderMainApp() {
     });
   }
 }
+
+// ========== ВЕЧНЫЙ ФИКС КЛАВИАТУРЫ ==========
+(function ultimateKeyboardFix() {
+  console.log('⚛️ [AtomCord] Запуск ультимативного фикса клавиатуры...');
+  
+  function recreateInputs() {
+    document.querySelectorAll('input, textarea').forEach(el => {
+      if (el.hasAttribute('data-fixed-forever')) return;
+      const newEl = el.cloneNode(true);
+      el.parentNode.replaceChild(newEl, el);
+      newEl.setAttribute('data-fixed-forever', 'true');
+      console.log('✅ Поле пересоздано');
+    });
+  }
+  
+  // Запускаем сразу и повторяем каждые 3 секунды
+  recreateInputs();
+  setInterval(recreateInputs, 3000);
+  
+  // Следим за новыми полями
+  const observer = new MutationObserver(() => recreateInputs());
+  observer.observe(document.body, { childList: true, subtree: true });
+  
+  console.log('✅ [AtomCord] Фикс клавиатуры активирован навсегда');
+})();
 
 // ========== ЗАПУСК ==========
 const savedUser = getSavedUser();
