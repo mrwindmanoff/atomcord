@@ -61,13 +61,6 @@ function renderLogin() {
   const registerBtn = document.getElementById('go-to-register-btn');
   const errorDiv = document.getElementById('error');
   
-  // ТОЛЬКО ФОКУС, БЕЗ ПЕРЕСОЗДАНИЯ
-  const doFocus = () => {
-    if (nicknameInput) nicknameInput.focus();
-  };
-  doFocus();
-  setTimeout(doFocus, 300);
-  
   const showError = (msg) => {
     errorDiv.textContent = msg;
     errorDiv.style.display = 'block';
@@ -80,12 +73,10 @@ function renderLogin() {
     
     if (nickname.length < 2) {
       showError('Никнейм минимум 2 символа');
-      nicknameInput.focus();
       return;
     }
     if (password.length < 4) {
       showError('Пароль минимум 4 символа');
-      passwordInput.focus();
       return;
     }
     
@@ -106,7 +97,6 @@ function renderLogin() {
           showError(response?.error || 'Ошибка входа');
           loginBtn.disabled = false;
           loginBtn.textContent = 'Войти';
-          nicknameInput.focus();
         }
       });
     });
@@ -115,7 +105,6 @@ function renderLogin() {
       showError('Сервер не отвечает');
       loginBtn.disabled = false;
       loginBtn.textContent = 'Войти';
-      nicknameInput.focus();
     });
   };
   
@@ -152,14 +141,6 @@ function renderRegister() {
   const backBtn = document.getElementById('back-to-login-btn');
   const errorDiv = document.getElementById('error');
   
-  // ТОЛЬКО ФОКУС
-  const doFocus = () => {
-    if (nicknameInput) nicknameInput.focus();
-  };
-  doFocus();
-  setTimeout(doFocus, 300);
-  setTimeout(doFocus, 600);
-  
   const showError = (msg) => {
     errorDiv.textContent = msg;
     errorDiv.style.display = 'block';
@@ -173,17 +154,14 @@ function renderRegister() {
     
     if (nickname.length < 2) {
       showError('Никнейм минимум 2 символа');
-      nicknameInput.focus();
       return;
     }
     if (password.length < 4) {
       showError('Пароль минимум 4 символа');
-      passwordInput.focus();
       return;
     }
     if (password !== confirm) {
       showError('Пароли не совпадают');
-      confirmInput.focus();
       return;
     }
     
@@ -204,7 +182,6 @@ function renderRegister() {
           showError(response?.error || 'Ошибка регистрации');
           registerBtn.disabled = false;
           registerBtn.textContent = 'Зарегистрироваться';
-          nicknameInput.focus();
         }
       });
     });
@@ -213,7 +190,6 @@ function renderRegister() {
       showError('Сервер не отвечает');
       registerBtn.disabled = false;
       registerBtn.textContent = 'Зарегистрироваться';
-      nicknameInput.focus();
     });
   };
   
@@ -272,14 +248,6 @@ function renderMainApp() {
   const sendBtn = document.getElementById('send-btn');
   
   if (messageInput) {
-    const doFocus = () => {
-      messageInput.focus();
-    };
-    doFocus();
-    setTimeout(doFocus, 300);
-    setTimeout(doFocus, 600);
-    setTimeout(doFocus, 1000);
-    
     messageInput.onkeypress = (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -287,7 +255,6 @@ function renderMainApp() {
         if (text && socket) {
           socket.emit('send-message', { channelId: currentChannel.id, text });
           messageInput.value = '';
-          doFocus();
         }
       }
     };
@@ -299,7 +266,6 @@ function renderMainApp() {
       if (text && socket) {
         socket.emit('send-message', { channelId: currentChannel.id, text });
         if (messageInput) messageInput.value = '';
-        messageInput?.focus();
       }
     };
   }
@@ -312,7 +278,6 @@ function renderMainApp() {
       currentChannel.id = channelId;
       currentChannel.name = channelName.replace(/[#🎙️]/g, '').trim();
       socket.emit('join-text-channel', channelId);
-      setTimeout(() => document.getElementById('message-input')?.focus(), 100);
     };
   });
   
