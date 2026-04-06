@@ -32,22 +32,32 @@ function render() {
   if (!currentUser) {
     LoginPage.render(app, handleAuth);
   } else {
+    if (!socket || !socket.connected) {
+      // Если сокет отключился, переподключаемся
+      handleAuth(currentUser.nickname, currentUser.password, currentUser.token, 'login');
+      return;
+    }
     MainApp.render(app, socket, currentUser, handleLogout);
   }
 }
 
 function handleAuth(nickname, password, savedToken, mode = 'login') {
   return new Promise((resolve, reject) => {
-    // Если есть сохранённый токен, пробуем восстановить сессию
     if (savedToken) {
       currentUser = { nickname, token: savedToken };
-      render();
-      resolve();
+      // Восстанавливаем сокет
+      socket = initSocket(nickname, password, (userData) => {
+        currentUser = userData;
+        render();
+        resolve();
+      }, (error) => {
+        console.error('Auth error:', error);
+        clearSavedUser();
+        currentUser = null;
+        reject(new Error(error));
+      }, mode);
       return;
     }
-    
-    // Определяем событие в зависимости от режима
-    const eventName = mode === 'login' ? 'login' : 'register';
     
     socket = initSocket(nickname, password, (userData) => {
       currentUser = userData;
@@ -56,7 +66,7 @@ function handleAuth(nickname, password, savedToken, mode = 'login') {
       resolve();
     }, (error) => {
       reject(new Error(error));
-    }, eventName);
+    }, mode);
   });
 }
 

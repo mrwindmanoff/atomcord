@@ -5,23 +5,30 @@ import { UserList } from '../components/UserList.js';
 
 export const MainApp = {
   render(container, socket, currentUser, onLogout) {
-    let servers = [];
-    let currentServer = null;
-    let currentChannel = null;
+    // Защита от null socket
+    if (!socket) {
+      console.error('❌ Socket не инициализирован');
+      container.innerHTML = '<div style="padding:20px; text-align:center;">Ошибка подключения. Перезагрузите страницу.</div>';
+      return;
+    }
+    
+    let currentChannel = { id: 'general', name: 'Общий', type: 'text' };
     let messagesCache = {};
     let onlineUsers = [];
+    let channels = [
+      { id: 'general', name: 'Общий', type: 'text' },
+      { id: 'random', name: 'Случайный', type: 'text' },
+      { id: 'voice-lobby', name: 'Главный штаб', type: 'voice' }
+    ];
     
     function renderUI() {
       container.innerHTML = `
         <div class="sidebar-container"></div>
         <div class="main-container">
           <div class="chat-header">
-            <h2>
-              ${currentChannel?.type === 'voice' ? '🎙️' : '#'} 
-              ${currentChannel?.name || 'Выберите канал'}
-            </h2>
+            <h2>${currentChannel.type === 'voice' ? '🎙️' : '#'} ${currentChannel.name}</h2>
             <div class="chat-header-actions">
-              <span style="font-size:12px; color:#888;">${currentUser.nickname}</span>
+              <span style="font-size:12px; color:#888; margin-right:12px;">${escapeHtml(currentUser.nickname)}</span>
               <button id="logout-btn" class="logout-button" title="Выйти">🚪</button>
             </div>
           </div>
@@ -32,10 +39,10 @@ export const MainApp = {
       `;
       
       const sidebarContainer = container.querySelector('.sidebar-container');
-      Sidebar.render(sidebarContainer, servers, currentServer, currentChannel, onServerClick, onChannelClick, socket);
+      Sidebar.render(sidebarContainer, channels, currentChannel.id, onChannelChange, socket);
       
       const chatAreaContainer = container.querySelector('.chat-area-container');
-      if (currentChannel && currentChannel.type === 'text') {
+      if (currentChannel.type === 'text') {
         ChatArea.render(chatAreaContainer, currentChannel, messagesCache[currentChannel.id] || [], socket);
       } else {
         chatAreaContainer.innerHTML = `
@@ -48,7 +55,7 @@ export const MainApp = {
       }
       
       const voicePanelContainer = container.querySelector('.voice-panel-container');
-      if (currentChannel && currentChannel.type === 'voice') {
+      if (currentChannel.type === 'voice') {
         VoicePanel.render(voicePanelContainer, currentChannel, socket);
       } else {
         voicePanelContainer.innerHTML = '';
@@ -57,29 +64,19 @@ export const MainApp = {
       const userlistContainer = container.querySelector('.userlist-container');
       UserList.render(userlistContainer, onlineUsers);
       
-      document.getElementById('logout-btn')?.addEventListener('click', onLogout);
+      const logoutBtn = document.getElementById('logout-btn');
+      if (logoutBtn) {
+        logoutBtn.addEventListener('click', onLogout);
+      }
       
-      if (currentChannel && currentChannel.type === 'text') {
+      // Проверяем socket перед emit
+      if (socket && currentChannel.type === 'text') {
         socket.emit('join-text-channel', currentChannel.id);
       }
     }
     
-    async function onServerClick(serverId) {
-      currentServer = servers.find(s => s.id === serverId);
-      if (currentServer) {
-        socket.emit('join-server', { serverId });
-        socket.emit('get-server-channels', { serverId }, (channels) => {
-          currentServer.channels = channels;
-          if (channels.length > 0) {
-            currentChannel = channels[0];
-          }
-          renderUI();
-        });
-      }
-    }
-    
-    function onChannelClick(channelId, channelType) {
-      const channel = currentServer?.channels?.find(c => c.id === channelId);
+    function onChannelChange(channelId) {
+      const channel = channels.find(c => c.id === channelId);
       if (channel) {
         currentChannel = channel;
         renderUI();
@@ -87,50 +84,40 @@ export const MainApp = {
     }
     
     function setupSocketEvents() {
-      socket.on('servers-list', (serversList) => {
-        servers = serversList;
-        if (servers.length > 0 && !currentServer) {
-          onServerClick(servers[0].id);
-        } else {
-          renderUI();
-        }
-      });
+      if (!socket) return;
       
-      socket.on('server-created', (newServer) => {
-        servers.push(newServer);
+      socket.on('channels-list', (channelsList) => {
+        channels = channelsList;
         renderUI();
       });
       
       socket.on('channel-created', (newChannel) => {
-        if (currentServer && newChannel.serverId === currentServer.id) {
-          if (!currentServer.channels) currentServer.channels = [];
-          currentServer.channels.push(newChannel);
-          renderUI();
-        }
+        channels.push(newChannel);
+        renderUI();
       });
       
       socket.on('channel-deleted', ({ channelId }) => {
-        if (currentServer?.channels) {
-          currentServer.channels = currentServer.channels.filter(c => c.id !== channelId);
-          if (currentChannel?.id === channelId) {
-            currentChannel = currentServer.channels[0];
-          }
-          renderUI();
+        channels = channels.filter(c => c.id !== channelId);
+        if (currentChannel.id === channelId) {
+          currentChannel = channels.find(c => c.type === 'text') || channels[0];
         }
+        renderUI();
       });
       
       socket.on('channel-history', ({ channelId, messages }) => {
         messagesCache[channelId] = messages;
-        if (currentChannel?.id === channelId) {
+        if (currentChannel.id === channelId && currentChannel.type === 'text') {
           const chatAreaContainer = document.querySelector('.chat-area-container');
-          ChatArea.render(chatAreaContainer, currentChannel, messages, socket);
+          if (chatAreaContainer) {
+            ChatArea.render(chatAreaContainer, currentChannel, messages, socket);
+          }
         }
       });
       
       socket.on('new-message', (message) => {
         if (!messagesCache[message.channelId]) messagesCache[message.channelId] = [];
         messagesCache[message.channelId].push(message);
-        if (currentChannel?.id === message.channelId) {
+        if (currentChannel.id === message.channelId && currentChannel.type === 'text') {
           ChatArea.appendMessage(message);
         }
       });
@@ -140,19 +127,53 @@ export const MainApp = {
         const userlistContainer = document.querySelector('.userlist-container');
         if (userlistContainer) UserList.render(userlistContainer, onlineUsers);
       });
+      
+      socket.on('user-joined', ({ nickname }) => {
+        const chatAreaContainer = document.querySelector('.chat-area-container');
+        if (chatAreaContainer && currentChannel.type === 'text') {
+          const sysDiv = document.createElement('div');
+          sysDiv.className = 'system-message';
+          sysDiv.textContent = `⚡ ${escapeHtml(nickname)} присоединился`;
+          const messagesContainer = chatAreaContainer.querySelector('#messages-container');
+          if (messagesContainer) {
+            messagesContainer.appendChild(sysDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          }
+        }
+      });
+      
+      socket.on('user-left', ({ nickname }) => {
+        const chatAreaContainer = document.querySelector('.chat-area-container');
+        if (chatAreaContainer && currentChannel.type === 'text') {
+          const sysDiv = document.createElement('div');
+          sysDiv.className = 'system-message';
+          sysDiv.textContent = `⚡ ${escapeHtml(nickname)} покинул`;
+          const messagesContainer = chatAreaContainer.querySelector('#messages-container');
+          if (messagesContainer) {
+            messagesContainer.appendChild(sysDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+          }
+        }
+      });
+      
+      socket.on('error', (error) => {
+        console.error('Socket error:', error);
+      });
     }
     
-    socket.emit('get-servers', (serversList) => {
-      servers = serversList;
-      if (servers.length > 0 && !currentServer) {
-        onServerClick(servers[0].id);
-      } else {
-        renderUI();
-      }
-    });
-    socket.emit('get-users');
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
     
-    setupSocketEvents();
+    // Проверяем socket перед emit
+    if (socket) {
+      socket.emit('get-channels');
+      socket.emit('get-users');
+      setupSocketEvents();
+    }
+    
     renderUI();
   }
 };
