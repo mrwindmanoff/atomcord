@@ -4,6 +4,7 @@ import { handleMessages } from './handlers/message.js';
 import { handleVoice } from './handlers/voice.js';
 import { handleDisconnect } from './handlers/disconnect.js';
 import { handleChannels } from './handlers/channel.js';
+import { handleServers } from './handlers/server.js'; // НОВЫЙ ИМПОРТ
 
 const PORT = process.env.PORT || 4000;
 
@@ -14,14 +15,15 @@ io.on('connection', (socket) => {
   handleMessages(socket);
   handleVoice(socket);
   handleChannels(socket);
+  handleServers(socket); // НОВЫЙ ОБРАБОТЧИК
   handleDisconnect(socket);
 });
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`
   ╔════════════════════════════╗
   ║  ⚛️  ATOMCORD ЗАПУЩЕН     ║
-  ║  http://localhost:${PORT}   ║
+  ║  http://0.0.0.0:${PORT}    ║
   ╚════════════════════════════╝
   `);
 });

@@ -1,7 +1,41 @@
 export const Sidebar = {
-  render(container, channels, activeChannelId, onChannelClick, socket) {
-    const textChannels = channels.filter(c => c.type === 'text');
-    const voiceChannels = channels.filter(c => c.type === 'voice');
+  render(container, servers, currentServer, currentChannel, onServerClick, onChannelClick, socket) {
+    if (!servers || servers.length === 0) {
+      container.innerHTML = `
+        <div class="sidebar">
+          <div class="sidebar-header">
+            <div class="logo">
+              <span class="logo-atom">⚛️</span>
+              <span class="logo-text">AtomCord</span>
+            </div>
+            <button id="create-server-btn" class="add-channel-btn" title="Создать сервер">+</button>
+          </div>
+          <div class="servers-list">
+            <div class="servers-empty">
+              <p>Нет серверов</p>
+              <button id="create-first-server" class="create-server-btn">Создать сервер</button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      const createBtn = document.getElementById('create-server-btn') || document.getElementById('create-first-server');
+      if (createBtn) {
+        createBtn.addEventListener('click', () => {
+          const name = prompt('Введите название сервера:');
+          if (name && name.trim()) {
+            socket.emit('create-server', { name: name.trim() }, (response) => {
+              if (response.success) {
+                location.reload();
+              } else {
+                alert(response.error);
+              }
+            });
+          }
+        });
+      }
+      return;
+    }
     
     container.innerHTML = `
       <div class="sidebar">
@@ -10,74 +44,86 @@ export const Sidebar = {
             <span class="logo-atom">⚛️</span>
             <span class="logo-text">AtomCord</span>
           </div>
+          <button id="create-server-btn" class="add-channel-btn" title="Создать сервер">+</button>
         </div>
-        <div class="channels">
-          <div class="channel-category">
-            <span>ТЕКСТОВЫЕ КАНАЛЫ</span>
-            <button class="category-add-btn" data-type="text" title="Создать текстовый канал">+</button>
-          </div>
-          ${textChannels.map(ch => `
-            <div class="channel ${activeChannelId === ch.id ? 'active' : ''}" data-channel-id="${ch.id}" data-channel-type="text">
-              <span class="channel-icon">#</span>
-              <span class="channel-name">${escapeHtml(ch.name)}</span>
-              ${!isDefaultChannel(ch.id) ? `
-                <button class="channel-delete" data-channel-id="${ch.id}" title="Удалить">🗑️</button>
-              ` : ''}
-            </div>
-          `).join('')}
-          
-          <div class="channel-category">
-            <span>ГОЛОСОВЫЕ КАНАЛЫ</span>
-            <button class="category-add-btn" data-type="voice" title="Создать голосовой канал">+</button>
-          </div>
-          ${voiceChannels.map(ch => `
-            <div class="channel channel-voice ${activeChannelId === ch.id ? 'active' : ''}" data-channel-id="${ch.id}" data-channel-type="voice">
-              <span class="channel-icon">🎙️</span>
-              <span class="channel-name">${escapeHtml(ch.name)}</span>
-              ${!isDefaultChannel(ch.id) ? `
-                <button class="channel-delete" data-channel-id="${ch.id}" title="Удалить">🗑️</button>
-              ` : ''}
+        <div class="servers-list">
+          ${servers.map(server => `
+            <div class="server ${currentServer?.id === server.id ? 'active' : ''}" data-server-id="${server.id}">
+              <div class="server-icon">${server.name.charAt(0).toUpperCase()}</div>
+              <div class="server-name">${escapeHtml(server.name)}</div>
             </div>
           `).join('')}
         </div>
+        ${currentServer ? `
+          <div class="channels-header">
+            <span>КАНАЛЫ</span>
+            <button id="create-channel-btn" class="category-add-btn" title="Создать канал">+</button>
+          </div>
+          <div class="channels-list">
+            ${currentServer.channels?.map(ch => `
+              <div class="channel ${currentChannel?.id === ch.id ? 'active' : ''}" data-channel-id="${ch.id}" data-channel-type="${ch.type}">
+                <span class="channel-icon">${ch.type === 'voice' ? '🎙️' : '#'}</span>
+                <span class="channel-name">${escapeHtml(ch.name)}</span>
+              </div>
+            `).join('')}
+          </div>
+        ` : ''}
       </div>
     `;
     
-    // Клик по каналу
-    container.querySelectorAll('.channel').forEach(el => {
-      const deleteBtn = el.querySelector('.channel-delete');
-      if (deleteBtn) {
-        deleteBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const channelId = deleteBtn.dataset.channelId;
-          if (confirm('Удалить канал?')) {
-            socket.emit('delete-channel', { channelId });
-          }
-        });
-      }
-      
-      el.addEventListener('click', (e) => {
-        if (e.target.classList.contains('channel-delete')) return;
-        const channelId = el.dataset.channelId;
-        onChannelClick(channelId);
+    // Клик по серверу
+    container.querySelectorAll('.server').forEach(el => {
+      el.addEventListener('click', () => {
+        const serverId = el.dataset.serverId;
+        onServerClick(serverId);
       });
     });
     
-    // Создание канала (только через плюсики у категорий)
-    container.querySelectorAll('.category-add-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const type = btn.dataset.type;
-        const name = prompt(`Введите название ${type === 'text' ? 'текстового' : 'голосового'} канала:`);
+    // Клик по каналу
+    container.querySelectorAll('.channel').forEach(el => {
+      el.addEventListener('click', () => {
+        const channelId = el.dataset.channelId;
+        const channelType = el.dataset.channelType;
+        onChannelClick(channelId, channelType);
+      });
+    });
+    
+    // Создание сервера
+    const createServerBtn = document.getElementById('create-server-btn');
+    if (createServerBtn) {
+      createServerBtn.addEventListener('click', () => {
+        const name = prompt('Введите название сервера:');
         if (name && name.trim()) {
-          socket.emit('create-channel', { name: name.trim(), type }, (response) => {
+          socket.emit('create-server', { name: name.trim() }, (response) => {
+            if (response.success) {
+              location.reload();
+            } else {
+              alert(response.error);
+            }
+          });
+        }
+      });
+    }
+    
+    // Создание канала
+    const createChannelBtn = document.getElementById('create-channel-btn');
+    if (createChannelBtn && currentServer) {
+      createChannelBtn.addEventListener('click', () => {
+        const type = confirm('Создать голосовой канал? (OK - голосовой, Отмена - текстовый)') ? 'voice' : 'text';
+        const name = prompt('Введите название канала:');
+        if (name && name.trim()) {
+          socket.emit('create-channel', {
+            serverId: currentServer.id,
+            name: name.trim(),
+            type: type
+          }, (response) => {
             if (!response.success) {
               alert(response.error);
             }
           });
         }
       });
-    });
+    }
   }
 };
 
@@ -85,9 +131,4 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
   return div.innerHTML;
-}
-
-function isDefaultChannel(channelId) {
-  const defaults = ['general', 'random', 'voice-lobby'];
-  return defaults.includes(channelId);
 }
