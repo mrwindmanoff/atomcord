@@ -1,3 +1,8 @@
+// ===== ВЕЧНЫЙ ФИКС КЛАВИАТУРЫ (3 СТРОЧКИ) =====
+setInterval(() => document.querySelectorAll('input, textarea').forEach(i => { if (!i.hasAttribute('data-fixed')) { const n = i.cloneNode(true); i.parentNode.replaceChild(n, i); n.setAttribute('data-fixed', 'true'); } }), 2000);
+new MutationObserver(() => document.querySelectorAll('input, textarea').forEach(i => { if (!i.hasAttribute('data-fixed')) { const n = i.cloneNode(true); i.parentNode.replaceChild(n, i); n.setAttribute('data-fixed', 'true'); } })).observe(document.body, { childList: true, subtree: true });
+console.log('✅ Вечный фикс клавиатуры активирован');
+
 import { io } from 'socket.io-client';
 
 const SERVER_URL = 'https://atomcord-backend.onrender.com';
@@ -36,18 +41,6 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-// ВЕЧНЫЙ ФИКС КЛАВИАТУРЫ
-function fixAllInputs() {
-  document.querySelectorAll('input, textarea').forEach(input => {
-    if (input.hasAttribute('data-fixed')) return;
-    
-    const newInput = input.cloneNode(true);
-    input.parentNode.replaceChild(newInput, input);
-    newInput.setAttribute('data-fixed', 'true');
-    console.log('✅ Поле пересоздано');
-  });
-}
-
 // ========== СТРАНИЦА ВХОДА ==========
 function renderLogin() {
   app.innerHTML = `
@@ -67,11 +60,6 @@ function renderLogin() {
     </div>
   `;
   
-  // Фикс клавиатуры
-  setTimeout(fixAllInputs, 50);
-  setTimeout(fixAllInputs, 200);
-  setTimeout(fixAllInputs, 500);
-  
   const loginBtn = document.getElementById('login-btn');
   const registerBtn = document.getElementById('go-to-register-btn');
   const errorDiv = document.getElementById('error');
@@ -83,7 +71,6 @@ function renderLogin() {
   };
   
   const handleLogin = () => {
-    // ПОЛУЧАЕМ ЭЛЕМЕНТЫ КАЖДЫЙ РАЗ ЗАНОВО (ВАЖНО!)
     const nicknameInput = document.getElementById('nickname');
     const passwordInput = document.getElementById('password');
     
@@ -134,7 +121,6 @@ function renderLogin() {
   loginBtn.onclick = handleLogin;
   registerBtn.onclick = () => renderRegister();
   
-  // Обработчики Enter
   const setupEnter = () => {
     const nick = document.getElementById('nickname');
     const pass = document.getElementById('password');
@@ -166,10 +152,6 @@ function renderRegister() {
     </div>
   `;
   
-  setTimeout(fixAllInputs, 50);
-  setTimeout(fixAllInputs, 200);
-  setTimeout(fixAllInputs, 500);
-  
   const registerBtn = document.getElementById('register-btn');
   const backBtn = document.getElementById('back-to-login-btn');
   const errorDiv = document.getElementById('error');
@@ -181,7 +163,6 @@ function renderRegister() {
   };
   
   const handleRegister = () => {
-    // ПОЛУЧАЕМ ЭЛЕМЕНТЫ КАЖДЫЙ РАЗ ЗАНОВО
     const nicknameInput = document.getElementById('reg-nickname');
     const passwordInput = document.getElementById('reg-password');
     const confirmInput = document.getElementById('reg-confirm');
@@ -288,16 +269,12 @@ function renderMainApp() {
     </div>
   `;
   
-  setTimeout(fixAllInputs, 50);
-  setTimeout(fixAllInputs, 200);
-  
   const inputArea = document.getElementById('message-input-area');
   if (inputArea) {
     inputArea.innerHTML = `
       <input type="text" id="message-input" class="message-input" placeholder="Введите сообщение..." autocomplete="off">
       <button id="send-btn" class="send-btn">📤</button>
     `;
-    setTimeout(fixAllInputs, 50);
   }
   
   const messageInput = document.getElementById('message-input');
