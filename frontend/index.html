@@ -3,7 +3,58 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AtomCord</title>
+  <title>AtomCord — Атомный голосовой штаб</title>
+  <link rel="stylesheet" href="/src/style.css">
+  <style>
+    /* Фоллбек стили на случай если CSS не загрузился */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: #0f0f1a;
+      color: white;
+    }
+    #app {
+      min-height: 100vh;
+    }
+    .login-screen {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .login-card {
+      background: #1a1a2a;
+      padding: 40px;
+      border-radius: 20px;
+      text-align: center;
+      width: 320px;
+    }
+    .login-input {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      background: #2a2a3a;
+      border: none;
+      border-radius: 8px;
+      color: white;
+    }
+    .login-button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 8px;
+      background: #5865f2;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+    }
+    .login-button.secondary {
+      background: transparent;
+      border: 1px solid #5865f2;
+    }
+  </style>
 </head>
 <body>
   <div id="app"></div>
