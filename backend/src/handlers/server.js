@@ -1,14 +1,12 @@
 import { io } from '../server.js';
 import { getUser } from '../store/users.js';
-import { createInvite, getInvite, useInvite, getUserInvites, deleteInvite } from '../store/invites.js';
 
-// Хранилище серверов (в памяти)
+// Хранилище серверов
 const servers = new Map();
 let nextServerId = 1;
 let nextChannelId = 1;
 
-// Создание сервера
-export function createServer(name, ownerId) {
+function createServer(name, ownerId) {
   const id = `server_${nextServerId++}`;
   const server = {
     id,
@@ -36,13 +34,7 @@ export function createServer(name, ownerId) {
   return server;
 }
 
-// Получить сервер по ID
-export function getServer(serverId) {
-  return servers.get(serverId);
-}
-
-// Получить все сервера пользователя
-export function getUserServers(userId) {
+function getUserServers(userId) {
   const userServers = [];
   for (const server of servers.values()) {
     if (server.members.has(userId)) {
@@ -56,8 +48,7 @@ export function getUserServers(userId) {
   return userServers;
 }
 
-// Добавить пользователя в сервер
-export function addUserToServer(serverId, userId) {
+function addUserToServer(serverId, userId) {
   const server = servers.get(serverId);
   if (server) {
     server.members.add(userId);
@@ -68,11 +59,10 @@ export function addUserToServer(serverId, userId) {
 
 export function handleServers(socket) {
   
-  // Создание сервера
   socket.on('create-server', ({ name }, callback) => {
     const user = getUser(socket.id);
     if (!user) {
-      callback({ success: false, error: 'Пользователь не найден' });
+      if (callback) callback({ success: false, error: 'Пользователь не найден' });
       return;
     }
     
@@ -83,19 +73,24 @@ export function handleServers(socket) {
       channels: server.channels
     });
     
-    callback({ success: true, server: { id: server.id, name: server.name } });
+    if (callback) callback({ success: true, server: { id: server.id, name: server.name } });
   });
   
-  // Получить все сервера пользователя
+  // ИСПРАВЛЕННЫЙ ОБРАБОТЧИК
   socket.on('get-servers', (callback) => {
     const user = getUser(socket.id);
     if (!user) return;
     
     const userServers = getUserServers(user.id);
-    callback(userServers);
+    
+    // Проверяем, является ли callback функцией
+    if (callback && typeof callback === 'function') {
+      callback(userServers);
+    } else {
+      socket.emit('servers-list', userServers);
+    }
   });
   
-  // Присоединение к серверу по ID (обычное)
   socket.on('join-server', ({ serverId }, callback) => {
     const user = getUser(socket.id);
     if (!user) return;
@@ -108,102 +103,16 @@ export function handleServers(socket) {
       socket.emit('server-channels', server.channels);
     }
     
-    callback({ success: true });
+    if (callback) callback({ success: true });
   });
   
-  // === НОВОЕ: ПРИСОЕДИНЕНИЕ ПО ИНВАЙТУ ===
-  socket.on('join-server-by-invite', ({ code }, callback) => {
-    const user = getUser(socket.id);
-    if (!user) {
-      callback({ success: false, error: 'Пользователь не найден' });
-      return;
-    }
-    
-    const invite = getInvite(code);
-    if (!invite) {
-      callback({ success: false, error: 'Приглашение недействительно или истекло' });
-      return;
-    }
-    
-    const serverId = invite.serverId;
-    const server = servers.get(serverId);
-    
-    if (!server) {
-      callback({ success: false, error: 'Сервер не найден' });
-      return;
-    }
-    
-    // Если уже в сервере
-    if (server.members.has(user.id)) {
-      callback({ success: true, serverId, alreadyMember: true });
-      return;
-    }
-    
-    // Используем инвайт
-    useInvite(code);
-    
-    // Добавляем пользователя
-    server.members.add(user.id);
-    socket.join(`server:${serverId}`);
-    
-    // Оповещаем всех в сервере о новом участнике
-    io.to(`server:${serverId}`).emit('user-joined-server', {
-      userId: user.id,
-      nickname: user.nickname
-    });
-    
-    callback({ 
-      success: true, 
-      serverId, 
-      serverName: server.name,
-      channels: server.channels 
-    });
-  });
-  
-  // Создание инвайта
-  socket.on('create-invite', ({ serverId, maxUses, expiresInHours }, callback) => {
-    const user = getUser(socket.id);
-    if (!user) {
-      callback({ success: false, error: 'Пользователь не найден' });
-      return;
-    }
-    
-    const server = servers.get(serverId);
-    if (!server || server.ownerId !== user.id) {
-      callback({ success: false, error: 'Только владелец сервера может создавать приглашения' });
-      return;
-    }
-    
-    const invite = createInvite(serverId, user.id, maxUses, expiresInHours);
-    callback({ success: true, inviteUrl: invite.inviteUrl, code: invite.code });
-  });
-  
-  // Получить все инвайты пользователя
-  socket.on('get-user-invites', (callback) => {
-    const user = getUser(socket.id);
-    if (!user) return;
-    
-    const invites = getUserInvites(user.id);
-    callback(invites);
-  });
-  
-  // Удалить инвайт
-  socket.on('delete-invite', ({ code }, callback) => {
-    const user = getUser(socket.id);
-    if (!user) return;
-    
-    const success = deleteInvite(code, user.id);
-    callback({ success });
-  });
-  
-  // Создание канала в сервере
   socket.on('create-channel', ({ serverId, name, type }, callback) => {
     const user = getUser(socket.id);
     if (!user) return;
     
     const server = servers.get(serverId);
     if (!server) {
-      callback({ success: false, error: 'Сервер не найден' });
+      if (callback) callback({ success: false, error: 'Сервер не найден' });
       return;
     }
     
@@ -216,6 +125,7 @@ export function handleServers(socket) {
     
     server.channels.push(newChannel);
     io.to(`server:${serverId}`).emit('channel-created', newChannel);
-    callback({ success: true, channel: newChannel });
+    
+    if (callback) callback({ success: true, channel: newChannel });
   });
 }
