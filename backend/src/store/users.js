@@ -1,3 +1,5 @@
+// backend/src/store/users.js
+
 // Хранилище пользователей
 const usersBySocket = new Map(); // socketId -> { id, nickname }
 const usersById = new Map(); // id -> { id, nickname, password }
@@ -54,4 +56,19 @@ export function getAllUsers() {
     id: u.id,
     nickname: u.nickname
   }));
+}
+
+// ===== ДОБАВИТЬ ЭТУ ФУНКЦИЮ =====
+export function getUserById(id) {
+  // Сначала ищем в usersById
+  if (usersById.has(id)) {
+    return usersById.get(id);
+  }
+  // Если нет, ищем в usersBySocket
+  for (const [socketId, user] of usersBySocket) {
+    if (user.id === id) {
+      return user;
+    }
+  }
+  return null;
 }
