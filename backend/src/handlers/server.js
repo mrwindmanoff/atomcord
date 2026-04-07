@@ -1,11 +1,28 @@
 import { io } from '../server.js';
-import { getUser } from '../store/users.js';
+import { getUser, getAllUsers } from '../store/users.js';
 
-// Хранилище серверов и инвайтов
 const servers = new Map();
 const invites = new Map();
 let nextServerId = 1;
 let nextChannelId = 1;
+
+// Хранилище активности пользователей
+const userActivity = new Map(); // userId -> lastActivity
+
+function updateUserActivity(userId) {
+  userActivity.set(userId, Date.now());
+  const status = getStatusFromActivity(userId);
+  io.emit('user-status-update', { userId, status, lastActivity: userActivity.get(userId) });
+}
+
+function getStatusFromActivity(userId) {
+  const last = userActivity.get(userId);
+  if (!last) return 'offline';
+  const diff = Date.now() - last;
+  if (diff < 60000) return 'online';
+  if (diff < 600000) return 'away';
+  return 'offline';
+}
 
 function generateInviteCode() {
   return Math.random().toString(36).substring(2, 10) + Math.random().toString(36).substring(2, 6);
@@ -17,6 +34,7 @@ function createServer(name, ownerId) {
     id, name, ownerId,
     channels: [],
     members: new Set([ownerId]),
+    membersList: [{ userId: ownerId, nickname: getUser(ownerId)?.nickname || 'Unknown' }],
     createdAt: Date.now()
   };
   server.channels.push({ id: `channel_${nextChannelId++}`, name: 'Общий', type: 'text', serverId: id });
@@ -29,13 +47,18 @@ function getUserServers(userId) {
   const result = [];
   for (const server of servers.values()) {
     if (server.members.has(userId)) {
-      result.push({ id: server.id, name: server.name, channels: server.channels });
+      result.push({ id: server.id, name: server.name, channels: server.channels, members: Array.from(server.members).map(m => ({ userId: m, nickname: getUser(m)?.nickname || 'Unknown' })) });
     }
   }
   return result;
 }
 
 export function handleServers(socket) {
+  
+  // Обновление активности
+  socket.on('update-activity', ({ userId }) => {
+    if (userId) updateUserActivity(userId);
+  });
   
   socket.on('create-server', ({ name }, callback) => {
     const user = getUser(socket.id);
@@ -66,12 +89,14 @@ export function handleServers(socket) {
     const server = servers.get(serverId);
     if (server && !server.members.has(user.id)) {
       server.members.add(user.id);
+      server.membersList.push({ userId: user.id, nickname: user.nickname });
+      // Оповещаем всех в сервере об обновлении списка участников
+      io.to(`server:${serverId}`).emit('server-members', { serverId, members: server.membersList });
     }
     if (server) socket.emit('server-channels', server.channels);
     if (callback) callback({ success: true });
   });
   
-  // ПРИСОЕДИНЕНИЕ ПО ИНВАЙТУ
   socket.on('join-server-by-invite', ({ code }, callback) => {
     const user = getUser(socket.id);
     if (!user) {
@@ -90,12 +115,13 @@ export function handleServers(socket) {
     }
     if (!server.members.has(user.id)) {
       server.members.add(user.id);
+      server.membersList.push({ userId: user.id, nickname: user.nickname });
+      io.to(`server:${invite.serverId}`).emit('server-members', { serverId: invite.serverId, members: server.membersList });
       socket.join(`server:${invite.serverId}`);
     }
     if (callback) callback({ success: true, serverId: invite.serverId, serverName: server.name, channels: server.channels });
   });
   
-  // СОЗДАНИЕ ИНВАЙТА
   socket.on('create-invite', ({ serverId, maxUses, expiresInHours }, callback) => {
     const user = getUser(socket.id);
     if (!user) {
@@ -133,4 +159,12 @@ export function handleServers(socket) {
     io.to(`server:${serverId}`).emit('channel-created', newChannel);
     if (callback) callback({ success: true, channel: newChannel });
   });
+  
+  // Периодическая проверка статусов (каждые 30 секунд)
+  setInterval(() => {
+    for (const [userId, lastActivity] of userActivity) {
+      const status = getStatusFromActivity(userId);
+      io.emit('user-status-update', { userId, status, lastActivity });
+    }
+  }, 30000);
 }

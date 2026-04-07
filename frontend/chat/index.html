@@ -36,6 +36,7 @@
       border-radius: 8px;
       cursor: pointer;
       margin-bottom: 4px;
+      position: relative;
     }
     .server:hover { background: #2a2a3a; }
     .server.active { background: #4a4a6a; }
@@ -49,6 +50,19 @@
       font-weight: bold;
     }
     .server-name { font-size: 14px; flex: 1; }
+    .server-settings {
+      opacity: 0;
+      width: 28px;
+      height: 28px;
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 16px;
+      border-radius: 6px;
+    }
+    .server:hover .server-settings { opacity: 1; }
+    .server-settings:hover { background: #2a2a3a; color: white; }
     
     .sidebar-buttons { padding: 12px; display: flex; gap: 8px; border-bottom: 1px solid #2a2a3a; }
     .sidebar-btn {
@@ -69,6 +83,23 @@
     .channel:hover { background: #2a2a3a; color: white; }
     .channel.active { background: #4a4a6a; color: white; }
     .add-channel-btn { background: none; border: none; color: #888; cursor: pointer; font-size: 14px; }
+    
+    .members-section { padding: 12px; border-top: 1px solid #2a2a3a; max-height: 250px; overflow-y: auto; }
+    .members-header { font-size: 11px; text-transform: uppercase; color: #888; margin-bottom: 8px; }
+    .member {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+    .member:hover { background: #2a2a3a; }
+    .member-status { width: 10px; height: 10px; border-radius: 50%; }
+    .member-status.online { background: #3ba55d; box-shadow: 0 0 4px #3ba55d; }
+    .member-status.away { background: #faa81a; box-shadow: 0 0 4px #faa81a; }
+    .member-status.offline { background: #80848e; }
+    .member-name { flex: 1; font-size: 13px; }
     
     .user-info { padding: 16px; border-top: 1px solid #2a2a3a; display: flex; justify-content: space-between; align-items: center; }
     .logout-btn { background: none; border: none; color: #888; cursor: pointer; font-size: 18px; }
@@ -105,7 +136,7 @@
       background: #1a1a2a;
       padding: 24px;
       border-radius: 16px;
-      width: 320px;
+      width: 360px;
       text-align: center;
     }
     .modal-content input {
@@ -126,6 +157,8 @@
     }
     .modal-confirm { background: #5865f2; color: white; }
     .modal-cancel { background: #2a2a3a; color: white; }
+    .invite-link { background: #2a2a3a; padding: 8px; border-radius: 8px; font-size: 12px; word-break: break-all; margin: 12px 0; }
+    .copy-btn { background: #5865f2; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
     
     .notification {
       position: fixed;
@@ -154,7 +187,66 @@
     let voiceStream = null;
     let peerConnections = new Map();
     let isInVoice = false;
-
+    
+    // Статусы пользователей
+    let userStatuses = new Map(); // userId -> { status, lastActivity }
+    let activityInterval = null;
+    
+    function updateMyActivity() {
+      if (socket && currentUser) {
+        socket.emit('update-activity', { userId: currentUser.userId });
+      }
+    }
+    
+    function startActivityTracking() {
+      if (activityInterval) clearInterval(activityInterval);
+      // Обновляем активность каждые 30 секунд
+      activityInterval = setInterval(() => {
+        updateMyActivity();
+      }, 30000);
+      
+      // События активности
+      ['click', 'keypress', 'mousemove', 'scroll'].forEach(event => {
+        document.addEventListener(event, updateMyActivity);
+      });
+    }
+    
+    function getStatusFromLastActivity(lastActivity) {
+      const now = Date.now();
+      const diff = now - lastActivity;
+      if (diff < 60000) return 'online';      // меньше 1 минуты
+      if (diff < 600000) return 'away';       // меньше 10 минут
+      return 'offline';                       // больше 10 минут
+    }
+    
+    function renderMembers() {
+      const container = document.getElementById('members-container');
+      if (!container || !currentServer) return;
+      
+      const membersList = currentServer.members || [];
+      if (membersList.length === 0) {
+        container.innerHTML = '<div class="members-header">УЧАСТНИКИ — 0</div><div class="member">Нет участников</div>';
+        return;
+      }
+      
+      const statusIcons = { online: '🟢', away: '🟡', offline: '⚫' };
+      
+      container.innerHTML = `
+        <div class="members-header">УЧАСТНИКИ — ${membersList.length}</div>
+        ${membersList.map(member => {
+          const status = userStatuses.get(member.userId) || { status: 'offline' };
+          const statusText = { online: 'В сети', away: 'Отошёл', offline: 'Не в сети' }[status.status];
+          return `
+            <div class="member">
+              <div class="member-status ${status.status}"></div>
+              <div class="member-name">${escapeHtml(member.nickname)}</div>
+              <div style="font-size: 10px; color: #888;">${statusText}</div>
+            </div>
+          `;
+        }).join('')}
+      `;
+    }
+    
     function showNotification(title, body) {
       const div = document.createElement('div');
       div.className = 'notification';
@@ -165,25 +257,18 @@
     }
     if (Notification.permission === 'default') Notification.requestPermission();
 
-    function showModal(title, placeholder, onConfirm) {
+    function showModal(title, content, onConfirm, onCancel) {
       const modal = document.createElement('div');
       modal.className = 'modal';
-      modal.innerHTML = `
-        <div class="modal-content">
-          <h3>${title}</h3>
-          <input type="text" id="modal-input" placeholder="${placeholder}" autocomplete="off">
-          <div>
-            <button class="modal-confirm" id="modal-confirm">Подтвердить</button>
-            <button class="modal-cancel" id="modal-cancel">Отмена</button>
-          </div>
-        </div>
-      `;
+      modal.innerHTML = `<div class="modal-content">${content}</div>`;
       document.body.appendChild(modal);
-      const input = modal.querySelector('#modal-input');
-      input.focus();
-      modal.querySelector('#modal-confirm').onclick = () => { onConfirm(input.value.trim()); modal.remove(); };
-      modal.querySelector('#modal-cancel').onclick = () => modal.remove();
-      input.onkeypress = (e) => { if (e.key === 'Enter') { onConfirm(input.value.trim()); modal.remove(); } };
+      const confirmBtn = modal.querySelector('#modal-confirm');
+      const cancelBtn = modal.querySelector('#modal-cancel');
+      if (confirmBtn) confirmBtn.onclick = () => { if (onConfirm) onConfirm(); modal.remove(); };
+      if (cancelBtn) cancelBtn.onclick = () => { if (onCancel) onCancel(); modal.remove(); };
+      const input = modal.querySelector('input');
+      if (input) input.focus();
+      return modal;
     }
 
     function renderUI() {
@@ -198,17 +283,21 @@
             <button id="join-by-invite-btn" class="sidebar-btn">🔗 Вступить по ссылке</button>
           </div>
           <div class="servers-section" id="servers-list">
-            ${servers.map(s => `<div class="server ${currentServer?.id === s.id ? 'active' : ''}" data-server-id="${s.id}"><div class="server-icon">${s.name.charAt(0).toUpperCase()}</div><div class="server-name">${escapeHtml(s.name)}</div></div>`).join('')}
+            ${servers.map(s => `
+              <div class="server ${currentServer?.id === s.id ? 'active' : ''}" data-server-id="${s.id}">
+                <div class="server-icon">${s.name.charAt(0).toUpperCase()}</div>
+                <div class="server-name">${escapeHtml(s.name)}</div>
+                <button class="server-settings" data-server-id="${s.id}" title="Настройки сервера">⚙️</button>
+              </div>
+            `).join('')}
           </div>
-          ${currentServer ? `
-            <div class="channels">
-              <div class="channel-category"><span>ТЕКСТОВЫЕ</span><button id="add-text-channel" class="add-channel-btn" data-type="text">+</button></div>
-              ${currentServer.channels?.filter(c => c.type === 'text').map(ch => `<div class="channel ${currentChannel?.id === ch.id ? 'active' : ''}" data-channel-id="${ch.id}" data-channel-type="text"><span>#</span><span>${escapeHtml(ch.name)}</span></div>`).join('')}
-              <div class="channel-category"><span>ГОЛОСОВЫЕ</span><button id="add-voice-channel" class="add-channel-btn" data-type="voice">+</button></div>
-              ${currentServer.channels?.filter(c => c.type === 'voice').map(ch => `<div class="channel ${currentChannel?.id === ch.id ? 'active' : ''}" data-channel-id="${ch.id}" data-channel-type="voice"><span>🎙️</span><span>${escapeHtml(ch.name)}</span></div>`).join('')}
-            </div>
-          ` : '<div class="channels" style="text-align:center; padding:20px;">Создайте или вступите в сервер</div>'}
-          <div class="user-info"><span>👤 ${escapeHtml(currentUser?.nickname || '')}</span><button id="logout-btn" class="logout-btn">🚪</button></div>
+          <div class="members-section" id="members-container">
+            <div class="members-header">УЧАСТНИКИ</div>
+          </div>
+          <div class="user-info">
+            <span>👤 ${escapeHtml(currentUser?.nickname || '')}</span>
+            <button id="logout-btn" class="logout-btn">🚪</button>
+          </div>
         </div>
         <div class="main-content">
           <div class="chat-header"><h2>${currentChannel ? (currentChannel.type === 'voice' ? '🎙️' : '#') + ' ' + escapeHtml(currentChannel.name) : 'Выберите канал'}</h2></div>
@@ -220,13 +309,15 @@
       
       // Обработчики кнопок
       document.getElementById('create-server-btn')?.addEventListener('click', () => {
-        showModal('Создать сервер', 'Название сервера', (name) => {
+        showModal('Создать сервер', '<h3>Создать сервер</h3><input type="text" id="modal-input" placeholder="Название сервера"><div><button class="modal-confirm" id="modal-confirm">Создать</button><button class="modal-cancel" id="modal-cancel">Отмена</button></div>', () => {
+          const name = document.querySelector('#modal-input')?.value.trim();
           if (name) socket.emit('create-server', { name });
         });
       });
       
       document.getElementById('join-by-invite-btn')?.addEventListener('click', () => {
-        showModal('Вступить по ссылке', 'Вставьте ссылку-приглашение', (inviteUrl) => {
+        showModal('Вступить по ссылке', '<h3>Вступить по ссылке</h3><input type="text" id="modal-input" placeholder="Вставьте ссылку-приглашение"><div><button class="modal-confirm" id="modal-confirm">Вступить</button><button class="modal-cancel" id="modal-cancel">Отмена</button></div>', () => {
+          const inviteUrl = document.querySelector('#modal-input')?.value.trim();
           if (inviteUrl) {
             const code = inviteUrl.split('/invite/')[1] || inviteUrl;
             socket.emit('join-server-by-invite', { code }, (res) => {
@@ -241,28 +332,45 @@
         });
       });
       
-      // Создание инвайта (правая кнопка мыши на сервере)
-      document.querySelectorAll('.server').forEach(el => {
-        el.onclick = () => selectServer(el.dataset.serverId);
-        el.oncontextmenu = (e) => {
-          e.preventDefault();
-          const serverId = el.dataset.serverId;
+      // Настройки сервера (шестерёнка)
+      document.querySelectorAll('.server-settings').forEach(btn => {
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          const serverId = btn.dataset.serverId;
           const server = servers.find(s => s.id === serverId);
           if (server && server.ownerId === currentUser?.userId) {
-            showModal('Создать приглашение', 'Лимит использований (0 - безлимит)', (maxUses) => {
-              socket.emit('create-invite', { serverId, maxUses: parseInt(maxUses) || 0, expiresInHours: 168 }, (res) => {
-                if (res?.success) {
-                  navigator.clipboard.writeText(res.inviteUrl);
-                  showNotification('Ссылка скопирована', res.inviteUrl);
-                } else {
-                  showNotification('Ошибка', res?.error || 'Не удалось создать ссылку');
+            // Создаём инвайт и показываем в модалке
+            socket.emit('create-invite', { serverId, maxUses: 0, expiresInHours: 168 }, (res) => {
+              if (res?.success) {
+                showModal('Настройки сервера', `
+                  <h3>${escapeHtml(server.name)}</h3>
+                  <div class="invite-link">${res.inviteUrl}</div>
+                  <button id="copy-invite-btn" class="copy-btn">📋 Копировать ссылку</button>
+                  <div><button class="modal-cancel" id="modal-cancel">Закрыть</button></div>
+                `, null, () => {});
+                const copyBtn = document.querySelector('#copy-invite-btn');
+                if (copyBtn) {
+                  copyBtn.onclick = () => {
+                    navigator.clipboard.writeText(res.inviteUrl);
+                    showNotification('Скопировано', 'Ссылка-приглашение скопирована');
+                  };
                 }
-              });
+              } else {
+                showNotification('Ошибка', res?.error || 'Не удалось создать ссылку');
+              }
             });
           } else {
-            showNotification('Нет прав', 'Только владелец сервера может создавать приглашения');
+            showNotification('Нет прав', 'Только владелец сервера может управлять настройками');
           }
         };
+      });
+      
+      // Выбор сервера
+      document.querySelectorAll('.server').forEach(el => {
+        const serverId = el.dataset.serverId;
+        if (serverId) {
+          el.onclick = () => selectServer(serverId);
+        }
       });
       
       const inputArea = document.getElementById('input-area');
@@ -311,16 +419,27 @@
       document.getElementById('logout-btn')?.addEventListener('click', () => { if (socket) socket.disconnect(); localStorage.removeItem('atomcord_user'); window.location.href = '/login'; });
       
       if (currentChannel?.type === 'text') renderMessages();
+      renderMembers();
     }
 
     function createChannel(type) { 
-      showModal(`Создать ${type === 'text' ? 'текстовый' : 'голосовой'} канал`, 'Название канала', (name) => {
+      showModal(`Создать ${type === 'text' ? 'текстовый' : 'голосовой'} канал`, `<h3>Создать канал</h3><input type="text" id="modal-input" placeholder="Название канала"><div><button class="modal-confirm" id="modal-confirm">Создать</button><button class="modal-cancel" id="modal-cancel">Отмена</button></div>`, () => {
+        const name = document.querySelector('#modal-input')?.value.trim();
         if (name && currentServer) socket.emit('create-channel', { serverId: currentServer.id, name, type });
       });
     }
     
-    function selectServer(id) { currentServer = servers.find(s => s.id === id); if (currentServer) socket.emit('join-server', { serverId: currentServer.id }); renderUI(); }
-    function selectChannel(id) { currentChannel = currentServer?.channels?.find(c => c.id === id); if (currentChannel?.type === 'text') socket.emit('join-text-channel', currentChannel.id); renderUI(); }
+    function selectServer(id) { 
+      currentServer = servers.find(s => s.id === id); 
+      if (currentServer) socket.emit('join-server', { serverId: currentServer.id }); 
+      renderUI(); 
+    }
+    
+    function selectChannel(id) { 
+      currentChannel = currentServer?.channels?.find(c => c.id === id); 
+      if (currentChannel?.type === 'text') socket.emit('join-text-channel', currentChannel.id); 
+      renderUI(); 
+    }
     
     function renderMessages() {
       const container = document.getElementById('messages-container');
@@ -353,6 +472,22 @@
       socket.on('channel-history', ({ channelId, messages }) => { messagesCache[channelId] = messages; if (currentChannel?.id === channelId) renderMessages(); });
       socket.on('new-message', (m) => { if (!messagesCache[m.channelId]) messagesCache[m.channelId] = []; messagesCache[m.channelId].push(m); if (currentChannel?.id === m.channelId) appendMessage(m); });
       
+      // Статусы участников
+      socket.on('server-members', ({ serverId, members }) => {
+        if (currentServer && currentServer.id === serverId) {
+          currentServer.members = members;
+          renderMembers();
+        }
+      });
+      
+      socket.on('user-status-update', ({ userId, status, lastActivity }) => {
+        userStatuses.set(userId, { status, lastActivity });
+        if (currentServer && currentServer.members?.some(m => m.userId === userId)) {
+          renderMembers();
+        }
+      });
+      
+      // Голосовые события
       socket.on('user-joined-voice', ({ socketId }) => { if (isInVoice && socketId !== socket.id) createPeerConnection(socketId); updateVoiceUsers(); });
       socket.on('user-left-voice', ({ socketId }) => { const pc = peerConnections.get(socketId); if (pc) { pc.close(); peerConnections.delete(socketId); } updateVoiceUsers(); });
       socket.on('voice-offer', async ({ fromId, offer }) => { if (!isInVoice) return; const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }); peerConnections.set(fromId, pc); if (voiceStream) voiceStream.getTracks().forEach(t => pc.addTrack(t, voiceStream)); pc.ontrack = (e) => { const audio = new Audio(); audio.srcObject = e.streams[0]; audio.autoplay = true; }; pc.onicecandidate = (e) => { if (e.candidate) socket.emit('voice-ice-candidate', { targetId: fromId, candidate: e.candidate }); }; await pc.setRemoteDescription(new RTCSessionDescription(offer)); const answer = await pc.createAnswer(); await pc.setLocalDescription(answer); socket.emit('voice-answer', { targetId: fromId, answer }); });
@@ -376,7 +511,19 @@
     if (!saved) { window.location.href = '/login'; } else {
       currentUser = JSON.parse(saved);
       socket = io('https://atomcord-backend.onrender.com', { transports: ['websocket', 'polling'] });
-      socket.on('connect', () => { socket.emit('login', { nickname: currentUser.nickname, password: currentUser.password }, (res) => { if (!res?.success) { localStorage.removeItem('atomcord_user'); window.location.href = '/login'; } else { socket.emit('get-servers'); setupSocketEvents(); renderUI(); } }); });
+      socket.on('connect', () => { 
+        socket.emit('login', { nickname: currentUser.nickname, password: currentUser.password }, (res) => { 
+          if (!res?.success) { localStorage.removeItem('atomcord_user'); window.location.href = '/login'; } 
+          else { 
+            currentUser.userId = res.userId;
+            socket.emit('get-servers'); 
+            setupSocketEvents(); 
+            renderUI(); 
+            startActivityTracking();
+            updateMyActivity();
+          } 
+        }); 
+      });
       socket.on('connect_error', () => alert('Сервер не отвечает'));
     }
   </script>
