@@ -35,7 +35,7 @@
       align-items: center;
       justify-content: center;
       cursor: pointer;
-      transition: all 0.2s ease;
+      transition: all 0.1s ease-out;
       font-weight: bold;
       font-size: 18px;
       position: relative;
@@ -49,6 +49,7 @@
     .server-icon:hover, .dm-icon:hover { border-radius: 16px; background: #5865f2; }
     .server-icon.active, .dm-icon.active { border-radius: 16px; background: #5865f2; }
     .add-server-icon { background: #1a1a2a; color: #3ba55d; font-size: 24px; }
+    .add-server-icon:hover { background: #3ba55d; color: white; }
     .dm-divider { width: 32px; height: 2px; background: #2a2a3a; margin: 8px 0; }
     
     /* САЙДБАР */
@@ -62,7 +63,7 @@
     .close-dm-btn { background: none; border: none; color: #888; cursor: pointer; font-size: 14px; }
     .channels { flex: 1; padding: 8px; overflow-y: auto; }
     .channel-category { font-size: 12px; text-transform: uppercase; color: #888; margin: 16px 0 8px 0; display: flex; justify-content: space-between; align-items: center; }
-    .channel { padding: 6px 8px; border-radius: 6px; cursor: pointer; color: #888; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    .channel { padding: 6px 8px; border-radius: 6px; cursor: pointer; color: #888; font-size: 14px; display: flex; align-items: center; gap: 8px; transition: all 0.1s ease; }
     .channel:hover { background: #2a2a3a; color: white; }
     .channel.active { background: #4a4a6a; color: white; }
     .add-channel-btn { background: none; border: none; color: #888; cursor: pointer; font-size: 14px; }
@@ -232,6 +233,11 @@
       border-radius: 50%;
       cursor: pointer;
       border: 2px solid transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      background: #2a2a3a;
     }
     .avatar-option:hover { border-color: #5865f2; }
     .invite-link {
@@ -278,7 +284,6 @@
     let activityInterval = null;
     let memberSearchQuery = '';
     
-    // Предустановленные аватарки
     const defaultAvatars = ['⚛️', '😀', '😂', '😎', '🥳', '😍', '🔥', '💀', '👻', '🤖', '🐱', '🐶', '🦊', '🐼', '🍕', '🎮', '💪', '🎧', '📷', '✈️'];
     
     let userProfile = {
@@ -337,7 +342,7 @@
     }
 
     function showProfileEditor() {
-      const avatarHtml = defaultAvatars.map(a => `<div class="avatar-option" data-avatar="${a}" style="background:#2a2a3a; display:flex; align-items:center; justify-content:center; font-size:24px;">${a}</div>`).join('');
+      const avatarHtml = defaultAvatars.map(a => `<div class="avatar-option" data-avatar="${a}">${a}</div>`).join('');
       showModal('Редактировать профиль', `
         <div class="avatar-preview" id="avatar-preview">${userProfile.avatar || '⚛️'}</div>
         <div class="avatar-options" id="avatar-options">${avatarHtml}</div>
@@ -358,7 +363,6 @@
         showNotification('Профиль обновлён', 'Изменения сохранены');
       });
       
-      // Выбор эмодзи аватара
       document.querySelectorAll('.avatar-option').forEach(opt => {
         opt.onclick = () => {
           const avatar = opt.dataset.avatar;
@@ -369,7 +373,6 @@
         };
       });
       
-      // Загрузка файла
       const uploadBtn = document.getElementById('upload-avatar-btn');
       const fileInput = document.getElementById('avatar-file');
       if (uploadBtn) {
@@ -394,7 +397,6 @@
       }
     }
     
-    // Создание инвайта
     function createInvite(serverId) {
       socket.emit('create-invite', { serverId, maxUses: 0, expiresInHours: 168 }, (res) => {
         if (res?.success) {
@@ -417,7 +419,6 @@
       });
     }
     
-    // Вступление по ссылке
     function joinByInvite() {
       showModal('Вступить по ссылке', `
         <h3>Введите ссылку-приглашение</h3>
@@ -512,6 +513,17 @@
                   <span>${escapeHtml(ch.name)}</span>
                 </div>
               `).join('')}
+              <div class="channel-category">
+                <span>ГОЛОСОВЫЕ КАНАЛЫ</span>
+                ${(currentServer.myRole === 'owner' || (currentServer.myPermissions && currentServer.myPermissions.includes('manage_channels'))) ? 
+                  `<button id="add-voice-channel" class="add-channel-btn" title="Создать голосовой канал">+</button>` : ''}
+              </div>
+              ${currentServer.channels?.filter(c => c.type === 'voice').map(ch => `
+                <div class="channel ${currentChannel?.id === ch.id && !currentDM ? 'active' : ''}" data-channel-id="${ch.id}" data-channel-type="voice">
+                  <span>🎙️</span>
+                  <span>${escapeHtml(ch.name)}</span>
+                </div>
+              `).join('')}
             </div>
           ` : currentDM ? `
             <div class="server-header">
@@ -582,7 +594,6 @@
         </div>
       `;
       
-      // Глобальный поиск
       const globalSearchInput = document.getElementById('global-search-input');
       if (globalSearchInput) {
         globalSearchInput.oninput = (e) => updateGlobalSearch(e.target.value);
@@ -604,12 +615,10 @@
         }
       });
       
-      // Выбор сервера
       document.querySelectorAll('.server-icon[data-server-id]').forEach(el => {
         el.onclick = () => selectServer(el.dataset.serverId);
       });
       
-      // Выбор диалога
       document.querySelectorAll('.dm-icon[data-dm-user]').forEach(el => {
         el.onclick = () => {
           const userId = el.dataset.dmUser;
@@ -618,10 +627,8 @@
         };
       });
       
-      // Закрыть диалог
       document.getElementById('close-dm-btn')?.addEventListener('click', closeDM);
       
-      // Создание сервера
       document.getElementById('create-server-btn')?.addEventListener('click', () => {
         showModal('Создать сервер', '<h3>Создать сервер</h3><input type="text" id="modal-input" placeholder="Название сервера"><div><button class="modal-confirm" id="modal-confirm">Создать</button><button class="modal-cancel" id="modal-cancel">Отмена</button></div>', () => {
           const name = document.querySelector('#modal-input')?.value.trim();
@@ -629,27 +636,36 @@
         });
       });
       
-      // Вступление по ссылке
       document.getElementById('join-invite-btn')?.addEventListener('click', joinByInvite);
       
-      // Создание инвайта
       document.getElementById('create-invite-btn')?.addEventListener('click', () => {
         if (currentServer) createInvite(currentServer.id);
       });
       
-      // Выбор канала
       document.querySelectorAll('.channel').forEach(el => {
         el.onclick = () => selectChannel(el.dataset.channelId);
       });
       
-      // Поиск участников
+      document.getElementById('add-text-channel')?.addEventListener('click', () => {
+        showModal('Создать канал', '<h3>Создать текстовый канал</h3><input type="text" id="modal-input" placeholder="Название канала"><div><button class="modal-confirm" id="modal-confirm">Создать</button><button class="modal-cancel" id="modal-cancel">Отмена</button></div>', () => {
+          const name = document.querySelector('#modal-input')?.value.trim();
+          if (name && currentServer) socket.emit('create-channel', { serverId: currentServer.id, name, type: 'text' });
+        });
+      });
+      
+      document.getElementById('add-voice-channel')?.addEventListener('click', () => {
+        showModal('Создать голосовой канал', '<h3>Создать голосовой канал</h3><input type="text" id="modal-input" placeholder="Название канала"><div><button class="modal-confirm" id="modal-confirm">Создать</button><button class="modal-cancel" id="modal-cancel">Отмена</button></div>', () => {
+          const name = document.querySelector('#modal-input')?.value.trim();
+          if (name && currentServer) socket.emit('create-channel', { serverId: currentServer.id, name, type: 'voice' });
+        });
+      });
+      
       const memberSearch = document.getElementById('member-search');
       if (memberSearch) {
         memberSearch.value = memberSearchQuery;
         memberSearch.oninput = (e) => { memberSearchQuery = e.target.value; renderUI(); };
       }
       
-      // Клик по участнику
       document.querySelectorAll('.member').forEach(el => {
         el.onclick = () => {
           const userId = el.dataset.userId;
@@ -660,15 +676,6 @@
         };
       });
       
-      // Создание канала
-      document.getElementById('add-text-channel')?.addEventListener('click', () => {
-        showModal('Создать канал', '<h3>Создать текстовый канал</h3><input type="text" id="modal-input" placeholder="Название канала"><div><button class="modal-confirm" id="modal-confirm">Создать</button><button class="modal-cancel" id="modal-cancel">Отмена</button></div>', () => {
-          const name = document.querySelector('#modal-input')?.value.trim();
-          if (name && currentServer) socket.emit('create-channel', { serverId: currentServer.id, name, type: 'text' });
-        });
-      });
-      
-      // Профиль
       document.getElementById('user-panel')?.addEventListener('click', showProfileEditor);
       
       const inputArea = document.getElementById('input-area');
