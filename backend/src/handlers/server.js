@@ -1,5 +1,5 @@
 import { io } from '../server.js';
-import { getUser, getAllUsers } from '../store/users.js';
+import { getUser, getUserById } from '../store/users.js';
 
 const servers = new Map();
 const invites = new Map();
@@ -7,7 +7,7 @@ let nextServerId = 1;
 let nextChannelId = 1;
 
 // Хранилище активности пользователей
-const userActivity = new Map(); // userId -> lastActivity
+const userActivity = new Map();
 
 function updateUserActivity(userId) {
   userActivity.set(userId, Date.now());
@@ -33,12 +33,20 @@ function createServer(name, ownerId) {
   const server = {
     id, name, ownerId,
     channels: [],
-    members: new Set([ownerId]),
-    membersList: [{ userId: ownerId, nickname: getUser(ownerId)?.nickname || 'Unknown' }],
+    members: new Map(), // userId -> { role, permissions }
+    membersList: [],
     createdAt: Date.now()
   };
+  
+  // Добавляем владельца с полными правами
+  server.members.set(ownerId, { 
+    role: 'owner', 
+    permissions: ['admin', 'manage_channels', 'manage_roles', 'create_invite', 'kick_members', 'ban_members']
+  });
+  
   server.channels.push({ id: `channel_${nextChannelId++}`, name: 'Общий', type: 'text', serverId: id });
   server.channels.push({ id: `channel_${nextChannelId++}`, name: 'Голосовой штаб', type: 'voice', serverId: id });
+  
   servers.set(id, server);
   return server;
 }
@@ -47,19 +55,39 @@ function getUserServers(userId) {
   const result = [];
   for (const server of servers.values()) {
     if (server.members.has(userId)) {
-      result.push({ id: server.id, name: server.name, channels: server.channels, members: Array.from(server.members).map(m => ({ userId: m, nickname: getUser(m)?.nickname || 'Unknown' })) });
+      const memberInfo = server.members.get(userId);
+      result.push({ 
+        id: server.id, 
+        name: server.name, 
+        channels: server.channels,
+        members: Array.from(server.members.entries()).map(([uid, data]) => ({ 
+          userId: uid, 
+          nickname: getUserById(uid)?.nickname || 'Unknown',
+          role: data.role,
+          permissions: data.permissions
+        })),
+        myRole: memberInfo.role,
+        myPermissions: memberInfo.permissions
+      });
     }
   }
   return result;
 }
 
+function hasPermission(server, userId, permission) {
+  const member = server.members.get(userId);
+  if (!member) return false;
+  if (member.role === 'owner') return true;
+  return member.permissions && member.permissions.includes(permission);
+}
+
 export function handleServers(socket) {
   
-  // Обновление активности
   socket.on('update-activity', ({ userId }) => {
     if (userId) updateUserActivity(userId);
   });
   
+  // Создание сервера
   socket.on('create-server', ({ name }, callback) => {
     const user = getUser(socket.id);
     if (!user) {
@@ -67,10 +95,17 @@ export function handleServers(socket) {
       return;
     }
     const server = createServer(name, user.id);
-    socket.emit('server-created', { id: server.id, name: server.name, channels: server.channels });
+    socket.emit('server-created', { 
+      id: server.id, 
+      name: server.name, 
+      channels: server.channels,
+      myRole: 'owner',
+      myPermissions: ['admin', 'manage_channels', 'manage_roles', 'create_invite', 'kick_members', 'ban_members']
+    });
     if (callback) callback({ success: true, server: { id: server.id, name: server.name } });
   });
   
+  // Получение серверов пользователя
   socket.on('get-servers', (callback) => {
     const user = getUser(socket.id);
     if (!user) return;
@@ -82,21 +117,59 @@ export function handleServers(socket) {
     }
   });
   
+  // Присоединение к серверу
   socket.on('join-server', ({ serverId }, callback) => {
     const user = getUser(socket.id);
     if (!user) return;
-    socket.join(`server:${serverId}`);
+    
     const server = servers.get(serverId);
-    if (server && !server.members.has(user.id)) {
-      server.members.add(user.id);
-      server.membersList.push({ userId: user.id, nickname: user.nickname });
-      // Оповещаем всех в сервере об обновлении списка участников
-      io.to(`server:${serverId}`).emit('server-members', { serverId, members: server.membersList });
+    if (!server) {
+      if (callback) callback({ success: false, error: 'Сервер не найден' });
+      return;
     }
-    if (server) socket.emit('server-channels', server.channels);
-    if (callback) callback({ success: true });
+    
+    socket.join(`server:${serverId}`);
+    
+    // Если пользователь уже в сервере, просто отправляем данные
+    if (server.members.has(user.id)) {
+      const memberInfo = server.members.get(user.id);
+      socket.emit('server-channels', server.channels);
+      socket.emit('server-members', { 
+        serverId, 
+        members: Array.from(server.members.entries()).map(([uid, data]) => ({
+          userId: uid,
+          nickname: getUserById(uid)?.nickname || 'Unknown',
+          role: data.role,
+          permissions: data.permissions
+        }))
+      });
+      if (callback) callback({ success: true, myRole: memberInfo.role, myPermissions: memberInfo.permissions });
+      return;
+    }
+    
+    // Новый пользователь получает роль 'member'
+    server.members.set(user.id, { 
+      role: 'member', 
+      permissions: ['view_channels', 'send_messages', 'connect_voice']
+    });
+    server.membersList.push({ userId: user.id, nickname: user.nickname, role: 'member' });
+    
+    // Оповещаем всех в сервере об обновлении списка участников
+    io.to(`server:${serverId}`).emit('server-members', { 
+      serverId, 
+      members: Array.from(server.members.entries()).map(([uid, data]) => ({
+        userId: uid,
+        nickname: getUserById(uid)?.nickname || 'Unknown',
+        role: data.role,
+        permissions: data.permissions
+      }))
+    });
+    
+    socket.emit('server-channels', server.channels);
+    if (callback) callback({ success: true, myRole: 'member', myPermissions: ['view_channels', 'send_messages', 'connect_voice'] });
   });
   
+  // Присоединение по инвайту
   socket.on('join-server-by-invite', ({ code }, callback) => {
     const user = getUser(socket.id);
     if (!user) {
@@ -113,15 +186,29 @@ export function handleServers(socket) {
       if (callback) callback({ success: false, error: 'Сервер не найден' });
       return;
     }
+    
+    socket.join(`server:${invite.serverId}`);
+    
     if (!server.members.has(user.id)) {
-      server.members.add(user.id);
-      server.membersList.push({ userId: user.id, nickname: user.nickname });
-      io.to(`server:${invite.serverId}`).emit('server-members', { serverId: invite.serverId, members: server.membersList });
-      socket.join(`server:${invite.serverId}`);
+      server.members.set(user.id, { 
+        role: 'member', 
+        permissions: ['view_channels', 'send_messages', 'connect_voice']
+      });
+      io.to(`server:${invite.serverId}`).emit('server-members', { 
+        serverId: invite.serverId, 
+        members: Array.from(server.members.entries()).map(([uid, data]) => ({
+          userId: uid,
+          nickname: getUserById(uid)?.nickname || 'Unknown',
+          role: data.role,
+          permissions: data.permissions
+        }))
+      });
     }
-    if (callback) callback({ success: true, serverId: invite.serverId, serverName: server.name, channels: server.channels });
+    
+    if (callback) callback({ success: true, serverId: invite.serverId, serverName: server.name, channels: server.channels, myRole: 'member' });
   });
   
+  // Создание инвайта (только для owner и admin с правом create_invite)
   socket.on('create-invite', ({ serverId, maxUses, expiresInHours }, callback) => {
     const user = getUser(socket.id);
     if (!user) {
@@ -129,10 +216,17 @@ export function handleServers(socket) {
       return;
     }
     const server = servers.get(serverId);
-    if (!server || server.ownerId !== user.id) {
-      if (callback) callback({ success: false, error: 'Только владелец сервера может создавать приглашения' });
+    if (!server) {
+      if (callback) callback({ success: false, error: 'Сервер не найден' });
       return;
     }
+    
+    const hasPerm = hasPermission(server, user.id, 'create_invite');
+    if (!hasPerm && server.ownerId !== user.id) {
+      if (callback) callback({ success: false, error: 'У вас нет прав на создание приглашений' });
+      return;
+    }
+    
     const code = generateInviteCode();
     const invite = {
       code, serverId,
@@ -146,6 +240,56 @@ export function handleServers(socket) {
     if (callback) callback({ success: true, code, inviteUrl });
   });
   
+  // Назначение роли (только для owner)
+  socket.on('assign-role', ({ serverId, targetUserId, role, permissions }, callback) => {
+    const user = getUser(socket.id);
+    if (!user) {
+      if (callback) callback({ success: false, error: 'Пользователь не найден' });
+      return;
+    }
+    const server = servers.get(serverId);
+    if (!server) {
+      if (callback) callback({ success: false, error: 'Сервер не найден' });
+      return;
+    }
+    
+    // Только владелец может назначать роли
+    if (server.ownerId !== user.id) {
+      if (callback) callback({ success: false, error: 'Только владелец сервера может назначать роли' });
+      return;
+    }
+    
+    if (!server.members.has(targetUserId)) {
+      if (callback) callback({ success: false, error: 'Пользователь не в сервере' });
+      return;
+    }
+    
+    let perms = [];
+    if (role === 'admin') {
+      perms = ['admin', 'manage_channels', 'manage_roles', 'create_invite', 'kick_members', 'ban_members'];
+    } else if (role === 'moderator') {
+      perms = ['manage_channels', 'create_invite', 'kick_members'];
+    } else {
+      perms = ['view_channels', 'send_messages', 'connect_voice'];
+    }
+    
+    server.members.set(targetUserId, { role, permissions: perms });
+    
+    // Оповещаем всех в сервере
+    io.to(`server:${serverId}`).emit('server-members', { 
+      serverId, 
+      members: Array.from(server.members.entries()).map(([uid, data]) => ({
+        userId: uid,
+        nickname: getUserById(uid)?.nickname || 'Unknown',
+        role: data.role,
+        permissions: data.permissions
+      }))
+    });
+    
+    if (callback) callback({ success: true });
+  });
+  
+  // Создание канала
   socket.on('create-channel', ({ serverId, name, type }, callback) => {
     const user = getUser(socket.id);
     if (!user) return;
@@ -154,13 +298,20 @@ export function handleServers(socket) {
       if (callback) callback({ success: false, error: 'Сервер не найден' });
       return;
     }
+    
+    const hasPerm = hasPermission(server, user.id, 'manage_channels');
+    if (!hasPerm && server.ownerId !== user.id) {
+      if (callback) callback({ success: false, error: 'У вас нет прав на создание каналов' });
+      return;
+    }
+    
     const newChannel = { id: `channel_${nextChannelId++}`, name: name.trim(), type, serverId };
     server.channels.push(newChannel);
     io.to(`server:${serverId}`).emit('channel-created', newChannel);
     if (callback) callback({ success: true, channel: newChannel });
   });
   
-  // Периодическая проверка статусов (каждые 30 секунд)
+  // Периодическая проверка статусов
   setInterval(() => {
     for (const [userId, lastActivity] of userActivity) {
       const status = getStatusFromActivity(userId);

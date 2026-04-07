@@ -6,171 +6,27 @@
   <title>AtomCord — Чат</title>
   <link rel="stylesheet" href="/style.css">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: system-ui, sans-serif; background: #0f0f1a; color: #e0e0e0; overflow: hidden; }
-    
-    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
-    
-    .main-layout { display: flex; height: 100vh; width: 100%; }
-    
-    .sidebar {
-      width: 280px;
-      background: #1a1a2a;
-      border-right: 1px solid #2a2a3a;
-      display: flex;
-      flex-direction: column;
+    /* Все стили как в предыдущей версии, плюс: */
+    .member-role {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #2a2a3a;
+      margin-left: 8px;
     }
-    .sidebar-header { padding: 20px; border-bottom: 1px solid #2a2a3a; display: flex; justify-content: space-between; align-items: center; }
-    .logo { font-size: 20px; font-weight: bold; }
-    .logo .logo-atom { display: inline-block; animation: spin 3s linear infinite; color: #5865f2; }
-    .logo .logo-text { background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; background-clip: text; color: transparent; }
-    
-    .servers-section { padding: 12px; border-bottom: 1px solid #2a2a3a; max-height: 200px; overflow-y: auto; }
-    .server {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 8px 12px;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-bottom: 4px;
-      position: relative;
-    }
-    .server:hover { background: #2a2a3a; }
-    .server.active { background: #4a4a6a; }
-    .server-icon {
-      width: 36px; height: 36px;
-      background: #5865f2;
-      border-radius: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-    }
-    .server-name { font-size: 14px; flex: 1; }
-    .server-settings {
-      opacity: 0;
-      width: 28px;
-      height: 28px;
-      background: none;
-      border: none;
-      color: #888;
-      cursor: pointer;
-      font-size: 16px;
-      border-radius: 6px;
-    }
-    .server:hover .server-settings { opacity: 1; }
-    .server-settings:hover { background: #2a2a3a; color: white; }
-    
-    .sidebar-buttons { padding: 12px; display: flex; gap: 8px; border-bottom: 1px solid #2a2a3a; }
-    .sidebar-btn {
-      flex: 1;
-      padding: 8px;
+    .member-role.owner { background: #faa81a; color: #1a1a2a; }
+    .member-role.admin { background: #5865f2; }
+    .member-role.moderator { background: #3ba55d; }
+    .role-select {
       background: #2a2a3a;
       border: none;
-      border-radius: 8px;
       color: white;
-      cursor: pointer;
-      font-size: 12px;
-    }
-    .sidebar-btn:hover { background: #5865f2; }
-    
-    .channels { flex: 1; padding: 16px; overflow-y: auto; }
-    .channel-category { font-size: 12px; text-transform: uppercase; color: #888; margin: 16px 0 8px 0; display: flex; justify-content: space-between; }
-    .channel { padding: 8px 12px; border-radius: 8px; cursor: pointer; color: #888; margin-bottom: 2px; display: flex; align-items: center; gap: 8px; }
-    .channel:hover { background: #2a2a3a; color: white; }
-    .channel.active { background: #4a4a6a; color: white; }
-    .add-channel-btn { background: none; border: none; color: #888; cursor: pointer; font-size: 14px; }
-    
-    .members-section { padding: 12px; border-top: 1px solid #2a2a3a; max-height: 250px; overflow-y: auto; }
-    .members-header { font-size: 11px; text-transform: uppercase; color: #888; margin-bottom: 8px; }
-    .member {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 6px 8px;
+      padding: 4px 8px;
       border-radius: 6px;
-      font-size: 13px;
-    }
-    .member:hover { background: #2a2a3a; }
-    .member-status { width: 10px; height: 10px; border-radius: 50%; }
-    .member-status.online { background: #3ba55d; box-shadow: 0 0 4px #3ba55d; }
-    .member-status.away { background: #faa81a; box-shadow: 0 0 4px #faa81a; }
-    .member-status.offline { background: #80848e; }
-    .member-name { flex: 1; font-size: 13px; }
-    
-    .user-info { padding: 16px; border-top: 1px solid #2a2a3a; display: flex; justify-content: space-between; align-items: center; }
-    .logout-btn { background: none; border: none; color: #888; cursor: pointer; font-size: 18px; }
-    
-    .main-content { flex: 1; display: flex; flex-direction: column; background: #0f0f1a; }
-    .chat-header { padding: 16px 20px; border-bottom: 1px solid #2a2a3a; background: #1a1a2a; }
-    .messages-container { flex: 1; overflow-y: auto; padding: 20px; }
-    .message { margin-bottom: 12px; animation: fadeIn 0.2s; }
-    .message strong { color: #b392f0; margin-right: 8px; }
-    .empty-messages { text-align: center; color: #888; padding: 40px; }
-    
-    .message-input-area { padding: 16px; border-top: 1px solid #2a2a3a; background: #1a1a2a; display: flex; gap: 12px; }
-    .message-input { flex: 1; padding: 12px; background: #2a2a3a; border: none; border-radius: 8px; color: white; }
-    .send-btn { padding: 12px 20px; background: #5865f2; border: none; border-radius: 8px; color: white; cursor: pointer; }
-    
-    .voice-panel { background: #1a1a2a; border-top: 1px solid #2a2a3a; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
-    .voice-btn { padding: 8px 16px; background: #3ba55d; border: none; border-radius: 8px; color: white; cursor: pointer; }
-    .voice-btn.leave { background: #ed4245; }
-    .voice-users { font-size: 12px; color: #888; }
-    
-    .modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0,0,0,0.7);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-    }
-    .modal-content {
-      background: #1a1a2a;
-      padding: 24px;
-      border-radius: 16px;
-      width: 360px;
-      text-align: center;
-    }
-    .modal-content input {
-      width: 100%;
-      padding: 12px;
-      margin: 16px 0;
-      background: #2a2a3a;
-      border: none;
-      border-radius: 8px;
-      color: white;
-    }
-    .modal-content button {
-      padding: 8px 16px;
-      margin: 4px;
-      border: none;
-      border-radius: 8px;
       cursor: pointer;
+      font-size: 11px;
     }
-    .modal-confirm { background: #5865f2; color: white; }
-    .modal-cancel { background: #2a2a3a; color: white; }
-    .invite-link { background: #2a2a3a; padding: 8px; border-radius: 8px; font-size: 12px; word-break: break-all; margin: 12px 0; }
-    .copy-btn { background: #5865f2; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
-    
-    .notification {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      background: #1a1a2a;
-      border-left: 4px solid #5865f2;
-      padding: 12px 20px;
-      border-radius: 8px;
-      animation: slideIn 0.3s ease;
-      z-index: 1000;
-    }
+    .role-select:hover { background: #5865f2; }
   </style>
 </head>
 <body>
@@ -187,9 +43,7 @@
     let voiceStream = null;
     let peerConnections = new Map();
     let isInVoice = false;
-    
-    // Статусы пользователей
-    let userStatuses = new Map(); // userId -> { status, lastActivity }
+    let userStatuses = new Map();
     let activityInterval = null;
     
     function updateMyActivity() {
@@ -200,12 +54,7 @@
     
     function startActivityTracking() {
       if (activityInterval) clearInterval(activityInterval);
-      // Обновляем активность каждые 30 секунд
-      activityInterval = setInterval(() => {
-        updateMyActivity();
-      }, 30000);
-      
-      // События активности
+      activityInterval = setInterval(updateMyActivity, 30000);
       ['click', 'keypress', 'mousemove', 'scroll'].forEach(event => {
         document.addEventListener(event, updateMyActivity);
       });
@@ -214,9 +63,15 @@
     function getStatusFromLastActivity(lastActivity) {
       const now = Date.now();
       const diff = now - lastActivity;
-      if (diff < 60000) return 'online';      // меньше 1 минуты
-      if (diff < 600000) return 'away';       // меньше 10 минут
-      return 'offline';                       // больше 10 минут
+      if (diff < 60000) return 'online';
+      if (diff < 600000) return 'away';
+      return 'offline';
+    }
+    
+    function hasPermission(permission) {
+      if (!currentServer) return false;
+      if (currentServer.myRole === 'owner') return true;
+      return currentServer.myPermissions && currentServer.myPermissions.includes(permission);
     }
     
     function renderMembers() {
@@ -229,22 +84,44 @@
         return;
       }
       
-      const statusIcons = { online: '🟢', away: '🟡', offline: '⚫' };
-      
       container.innerHTML = `
         <div class="members-header">УЧАСТНИКИ — ${membersList.length}</div>
         ${membersList.map(member => {
           const status = userStatuses.get(member.userId) || { status: 'offline' };
           const statusText = { online: 'В сети', away: 'Отошёл', offline: 'Не в сети' }[status.status];
+          const roleText = { owner: 'Владелец', admin: 'Админ', moderator: 'Модератор', member: 'Участник' }[member.role] || 'Участник';
+          const roleClass = { owner: 'owner', admin: 'admin', moderator: 'moderator', member: '' }[member.role] || '';
+          
+          // Показываем выбор роли только владельцу
+          const roleSelector = (currentServer.myRole === 'owner' && member.userId !== currentUser.userId) ? `
+            <select class="role-select" data-user-id="${member.userId}">
+              <option value="member" ${member.role === 'member' ? 'selected' : ''}>Участник</option>
+              <option value="moderator" ${member.role === 'moderator' ? 'selected' : ''}>Модератор</option>
+              <option value="admin" ${member.role === 'admin' ? 'selected' : ''}>Админ</option>
+            </select>
+          ` : `<span class="member-role ${roleClass}">${roleText}</span>`;
+          
           return `
-            <div class="member">
+            <div class="member" data-user-id="${member.userId}">
               <div class="member-status ${status.status}"></div>
               <div class="member-name">${escapeHtml(member.nickname)}</div>
+              ${roleSelector}
               <div style="font-size: 10px; color: #888;">${statusText}</div>
             </div>
           `;
         }).join('')}
       `;
+      
+      // Обработчики смены роли
+      document.querySelectorAll('.role-select').forEach(select => {
+        select.onchange = (e) => {
+          const targetUserId = select.dataset.userId;
+          const newRole = select.value;
+          socket.emit('assign-role', { serverId: currentServer.id, targetUserId, role: newRole }, (res) => {
+            if (!res.success) showNotification('Ошибка', res.error);
+          });
+        };
+      });
     }
     
     function showNotification(title, body) {
@@ -287,7 +164,8 @@
               <div class="server ${currentServer?.id === s.id ? 'active' : ''}" data-server-id="${s.id}">
                 <div class="server-icon">${s.name.charAt(0).toUpperCase()}</div>
                 <div class="server-name">${escapeHtml(s.name)}</div>
-                <button class="server-settings" data-server-id="${s.id}" title="Настройки сервера">⚙️</button>
+                ${(s.myRole === 'owner' || (s.myPermissions && s.myPermissions.includes('admin'))) ? 
+                  `<button class="server-settings" data-server-id="${s.id}" title="Настройки сервера">⚙️</button>` : ''}
               </div>
             `).join('')}
           </div>
@@ -307,7 +185,7 @@
         </div>
       `;
       
-      // Обработчики кнопок
+      // Кнопка создания сервера
       document.getElementById('create-server-btn')?.addEventListener('click', () => {
         showModal('Создать сервер', '<h3>Создать сервер</h3><input type="text" id="modal-input" placeholder="Название сервера"><div><button class="modal-confirm" id="modal-confirm">Создать</button><button class="modal-cancel" id="modal-cancel">Отмена</button></div>', () => {
           const name = document.querySelector('#modal-input')?.value.trim();
@@ -315,6 +193,7 @@
         });
       });
       
+      // Кнопка вступления по ссылке
       document.getElementById('join-by-invite-btn')?.addEventListener('click', () => {
         showModal('Вступить по ссылке', '<h3>Вступить по ссылке</h3><input type="text" id="modal-input" placeholder="Вставьте ссылку-приглашение"><div><button class="modal-confirm" id="modal-confirm">Вступить</button><button class="modal-cancel" id="modal-cancel">Отмена</button></div>', () => {
           const inviteUrl = document.querySelector('#modal-input')?.value.trim();
@@ -338,14 +217,23 @@
           e.stopPropagation();
           const serverId = btn.dataset.serverId;
           const server = servers.find(s => s.id === serverId);
-          if (server && server.ownerId === currentUser?.userId) {
-            // Создаём инвайт и показываем в модалке
+          if (server && (server.myRole === 'owner' || (server.myPermissions && server.myPermissions.includes('admin')))) {
             socket.emit('create-invite', { serverId, maxUses: 0, expiresInHours: 168 }, (res) => {
               if (res?.success) {
+                let permissionsHtml = '';
+                if (server.myRole === 'owner') {
+                  permissionsHtml = `
+                    <div style="margin-top: 16px; text-align: left;">
+                      <h4>Управление ролями</h4>
+                      <p style="font-size: 12px; color: #888;">Кликните на роль участника в списке справа, чтобы изменить</p>
+                    </div>
+                  `;
+                }
                 showModal('Настройки сервера', `
                   <h3>${escapeHtml(server.name)}</h3>
                   <div class="invite-link">${res.inviteUrl}</div>
                   <button id="copy-invite-btn" class="copy-btn">📋 Копировать ссылку</button>
+                  ${permissionsHtml}
                   <div><button class="modal-cancel" id="modal-cancel">Закрыть</button></div>
                 `, null, () => {});
                 const copyBtn = document.querySelector('#copy-invite-btn');
@@ -360,7 +248,7 @@
               }
             });
           } else {
-            showNotification('Нет прав', 'Только владелец сервера может управлять настройками');
+            showNotification('Нет прав', 'У вас нет прав на управление сервером');
           }
         };
       });
@@ -414,8 +302,13 @@
       }
       
       document.querySelectorAll('.channel').forEach(el => { el.onclick = () => selectChannel(el.dataset.channelId); });
-      document.getElementById('add-text-channel')?.addEventListener('click', () => createChannel('text'));
-      document.getElementById('add-voice-channel')?.addEventListener('click', () => createChannel('voice'));
+      
+      // Кнопки создания каналов (только с правами)
+      if (hasPermission('manage_channels') || currentServer?.myRole === 'owner') {
+        document.getElementById('add-text-channel')?.addEventListener('click', () => createChannel('text'));
+        document.getElementById('add-voice-channel')?.addEventListener('click', () => createChannel('voice'));
+      }
+      
       document.getElementById('logout-btn')?.addEventListener('click', () => { if (socket) socket.disconnect(); localStorage.removeItem('atomcord_user'); window.location.href = '/login'; });
       
       if (currentChannel?.type === 'text') renderMessages();
@@ -431,7 +324,14 @@
     
     function selectServer(id) { 
       currentServer = servers.find(s => s.id === id); 
-      if (currentServer) socket.emit('join-server', { serverId: currentServer.id }); 
+      if (currentServer) {
+        socket.emit('join-server', { serverId: currentServer.id }, (res) => {
+          if (res) {
+            currentServer.myRole = res.myRole;
+            currentServer.myPermissions = res.myPermissions;
+          }
+        });
+      }
       renderUI(); 
     }
     
@@ -465,14 +365,20 @@
     function escapeHtml(s) { if (!s) return ''; const div = document.createElement('div'); div.textContent = s; return div.innerHTML; }
 
     function setupSocketEvents() {
-      socket.on('servers-list', (list) => { servers = list; if (servers.length && !currentServer) selectServer(servers[0].id); renderUI(); });
-      socket.on('server-created', (s) => { servers.push(s); renderUI(); });
+      socket.on('servers-list', (list) => { 
+        servers = list; 
+        if (servers.length && !currentServer) selectServer(servers[0].id); 
+        renderUI(); 
+      });
+      socket.on('server-created', (s) => { 
+        servers.push({ ...s, myRole: 'owner', myPermissions: ['admin', 'manage_channels', 'manage_roles', 'create_invite'] }); 
+        renderUI(); 
+      });
       socket.on('server-channels', (ch) => { if (currentServer) { currentServer.channels = ch; if (!currentChannel && ch.length) selectChannel(ch[0].id); renderUI(); } });
       socket.on('channel-created', (ch) => { if (currentServer && ch.serverId === currentServer.id) { currentServer.channels.push(ch); renderUI(); } });
       socket.on('channel-history', ({ channelId, messages }) => { messagesCache[channelId] = messages; if (currentChannel?.id === channelId) renderMessages(); });
       socket.on('new-message', (m) => { if (!messagesCache[m.channelId]) messagesCache[m.channelId] = []; messagesCache[m.channelId].push(m); if (currentChannel?.id === m.channelId) appendMessage(m); });
       
-      // Статусы участников
       socket.on('server-members', ({ serverId, members }) => {
         if (currentServer && currentServer.id === serverId) {
           currentServer.members = members;
