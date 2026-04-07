@@ -1,16 +1,7 @@
 import { io } from '../server.js';
-import { registerUser, loginUser, addUser, getAllUsers, getUser, removeUser } from '../store/users.js';
+import { registerUser, loginUser, addUser, getAllUsers, getUser, removeUser, getUserById } from '../store/users.js';
 
 export function handleConnection(socket) {
-
-  // При логине добавляем пользователя в его персональную комнату
-  socket.on('login', ({ nickname, password }, callback) => {
-  // ... существующий код ...
-  if (result.success) {
-    socket.join(`user_${result.user.id}`);
-    // ... остальной код ...
-  }
-});
   
   // Регистрация с паролем
   socket.on('register', ({ nickname, password }, callback) => {
@@ -19,6 +10,9 @@ export function handleConnection(socket) {
     
     if (result.success) {
       const user = addUser(socket.id, nickname, result.user.id);
+      
+      // Добавляем пользователя в его персональную комнату для ЛС
+      socket.join(`user_${result.user.id}`);
       
       io.emit('users-list', getAllUsers());
       socket.broadcast.emit('user-joined', { nickname });
@@ -41,6 +35,12 @@ export function handleConnection(socket) {
     if (result.success) {
       const user = addUser(socket.id, nickname, result.user.id);
       
+      // Добавляем пользователя в его персональную комнату для ЛС
+      socket.join(`user_${result.user.id}`);
+      
+      // Отправляем список всех пользователей для глобального поиска
+      socket.emit('all-users', getAllUsers());
+      
       callback({ 
         success: true, 
         nickname, 
@@ -55,6 +55,16 @@ export function handleConnection(socket) {
   socket.on('get-users', (callback) => {
     if (callback) callback(getAllUsers());
     else socket.emit('users-list', getAllUsers());
+  });
+  
+  // Получить всех пользователей для глобального поиска
+  socket.on('get-all-users', (callback) => {
+    const allUsers = getAllUsers();
+    if (callback && typeof callback === 'function') {
+      callback(allUsers);
+    } else {
+      socket.emit('all-users', allUsers);
+    }
   });
   
   // Отключение
