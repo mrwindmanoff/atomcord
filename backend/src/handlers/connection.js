@@ -2,6 +2,15 @@ import { io } from '../server.js';
 import { registerUser, loginUser, addUser, getAllUsers, getUser, removeUser } from '../store/users.js';
 
 export function handleConnection(socket) {
+
+  // При логине добавляем пользователя в его персональную комнату
+  socket.on('login', ({ nickname, password }, callback) => {
+  // ... существующий код ...
+  if (result.success) {
+    socket.join(`user_${result.user.id}`);
+    // ... остальной код ...
+  }
+});
   
   // Регистрация с паролем
   socket.on('register', ({ nickname, password }, callback) => {
