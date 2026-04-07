@@ -9,15 +9,11 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: system-ui, sans-serif; background: #0f0f1a; color: #e0e0e0; overflow: hidden; }
     
-    /* Анимации */
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
     
-    /* Основной макет */
     .main-layout { display: flex; height: 100vh; width: 100%; }
     
-    /* Сайдбар с серверами */
     .sidebar {
       width: 280px;
       background: #1a1a2a;
@@ -29,7 +25,6 @@
     .logo { font-size: 20px; font-weight: bold; background: linear-gradient(135deg, #667eea, #764ba2); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .logo-atom { display: inline-block; animation: spin 3s linear infinite; }
     
-    /* Сервера */
     .servers-section { padding: 12px; border-bottom: 1px solid #2a2a3a; }
     .server {
       display: flex;
@@ -62,7 +57,6 @@
       cursor: pointer;
     }
     
-    /* Каналы */
     .channels { flex: 1; padding: 16px; overflow-y: auto; }
     .channel-category { font-size: 12px; text-transform: uppercase; color: #888; margin: 16px 0 8px 0; display: flex; justify-content: space-between; }
     .channel { padding: 8px 12px; border-radius: 8px; cursor: pointer; color: #888; margin-bottom: 2px; display: flex; align-items: center; gap: 8px; }
@@ -73,7 +67,6 @@
     .user-info { padding: 16px; border-top: 1px solid #2a2a3a; display: flex; justify-content: space-between; align-items: center; }
     .logout-btn { background: none; border: none; color: #888; cursor: pointer; font-size: 18px; }
     
-    /* Основной чат */
     .main-content { flex: 1; display: flex; flex-direction: column; background: #0f0f1a; }
     .chat-header { padding: 16px 20px; border-bottom: 1px solid #2a2a3a; background: #1a1a2a; }
     .messages-container { flex: 1; overflow-y: auto; padding: 20px; }
@@ -81,12 +74,10 @@
     .message strong { color: #b392f0; margin-right: 8px; }
     .empty-messages { text-align: center; color: #888; padding: 40px; }
     
-    /* Ввод сообщения */
     .message-input-area { padding: 16px; border-top: 1px solid #2a2a3a; background: #1a1a2a; display: flex; gap: 12px; }
     .message-input { flex: 1; padding: 12px; background: #2a2a3a; border: none; border-radius: 8px; color: white; }
     .send-btn { padding: 12px 20px; background: #5865f2; border: none; border-radius: 8px; color: white; cursor: pointer; }
     
-    /* Голосовая панель */
     .voice-panel {
       background: #1a1a2a;
       border-top: 1px solid #2a2a3a;
@@ -106,7 +97,6 @@
     .voice-btn.leave { background: #ed4245; }
     .voice-users { font-size: 12px; color: #888; }
     
-    /* Уведомления */
     .notification {
       position: fixed;
       bottom: 20px;
@@ -117,8 +107,8 @@
       border-radius: 8px;
       animation: slideIn 0.3s ease;
       z-index: 1000;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
+    @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
   </style>
 </head>
 <body>
@@ -126,431 +116,147 @@
 
   <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
   <script>
-    // ========== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ==========
     let currentUser = null;
     let socket = null;
     let currentServer = null;
     let currentChannel = null;
     let servers = [];
     let messagesCache = {};
-    
-    // Голос
     let voiceStream = null;
     let peerConnections = new Map();
     let isInVoice = false;
-    let currentVoiceChannel = null;
-    
-    // Звук уведомления
-    const notificationSound = new Audio('data:audio/wav;base64,U3RlYWx0aCBib3QgZGVjb2RlIHRoaXMgaXMgYSBzaW1wbGUgYmVlcCBzb3VuZA==');
-    function playNotificationSound() {
-      try {
-        const audio = new Audio();
-        audio.src = 'https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3';
-        audio.volume = 0.3;
-        audio.play().catch(e => console.log('Звук не воспроизведён:', e));
-      } catch(e) {}
-    }
-    
+
     function showNotification(title, body) {
-      // Всплывающее уведомление в интерфейсе
-      const notificationDiv = document.createElement('div');
-      notificationDiv.className = 'notification';
-      notificationDiv.innerHTML = `<strong>${title}</strong><br>${body}`;
-      document.body.appendChild(notificationDiv);
-      setTimeout(() => notificationDiv.remove(), 4000);
-      
-      // Браузерное уведомление
+      const div = document.createElement('div');
+      div.className = 'notification';
+      div.innerHTML = `<strong>${title}</strong><br>${body}`;
+      document.body.appendChild(div);
+      setTimeout(() => div.remove(), 4000);
       if (Notification.permission === 'granted') {
-        new Notification(title, { body: body, icon: '/logo.png' });
+        new Notification(title, { body: body });
       }
     }
-    
-    // Запрос разрешения на уведомления
-    if (Notification.permission === 'default') {
-      Notification.requestPermission();
-    }
-    
-    // ========== ОТРИСОВКА ИНТЕРФЕЙСА ==========
+    if (Notification.permission === 'default') Notification.requestPermission();
+
     function renderUI() {
       const app = document.getElementById('app');
-      
       app.innerHTML = `
         <div class="sidebar">
           <div class="sidebar-header">
-            <div class="logo">
-              <span class="logo-atom">⚛️</span>
-              <span class="logo-text">AtomCord</span>
-            </div>
-            <button id="add-server-btn" class="add-server-btn" title="Создать сервер">+</button>
+            <div class="logo"><span class="logo-atom">⚛️</span><span class="logo-text">AtomCord</span></div>
+            <button id="add-server-btn" class="add-server-btn">+</button>
           </div>
-          
           <div class="servers-section">
-            ${servers.map(server => `
-              <div class="server ${currentServer?.id === server.id ? 'active' : ''}" data-server-id="${server.id}">
-                <div class="server-icon">${server.name.charAt(0).toUpperCase()}</div>
-                <div class="server-name">${escapeHtml(server.name)}</div>
-              </div>
-            `).join('')}
+            ${servers.map(s => `<div class="server ${currentServer?.id === s.id ? 'active' : ''}" data-server-id="${s.id}"><div class="server-icon">${s.name.charAt(0).toUpperCase()}</div><div class="server-name">${escapeHtml(s.name)}</div></div>`).join('')}
           </div>
-          
           ${currentServer ? `
             <div class="channels">
-              <div class="channel-category">
-                <span>ТЕКСТОВЫЕ КАНАЛЫ</span>
-                <button id="add-text-channel" class="add-channel-btn" data-type="text">+</button>
-              </div>
-              ${currentServer.channels?.filter(c => c.type === 'text').map(ch => `
-                <div class="channel ${currentChannel?.id === ch.id ? 'active' : ''}" data-channel-id="${ch.id}" data-channel-type="text">
-                  <span>#</span>
-                  <span>${escapeHtml(ch.name)}</span>
-                </div>
-              `).join('')}
-              
-              <div class="channel-category">
-                <span>ГОЛОСОВЫЕ КАНАЛЫ</span>
-                <button id="add-voice-channel" class="add-channel-btn" data-type="voice">+</button>
-              </div>
-              ${currentServer.channels?.filter(c => c.type === 'voice').map(ch => `
-                <div class="channel ${currentChannel?.id === ch.id ? 'active' : ''}" data-channel-id="${ch.id}" data-channel-type="voice">
-                  <span>🎙️</span>
-                  <span>${escapeHtml(ch.name)}</span>
-                </div>
-              `).join('')}
+              <div class="channel-category"><span>ТЕКСТОВЫЕ</span><button id="add-text-channel" class="add-channel-btn" data-type="text">+</button></div>
+              ${currentServer.channels?.filter(c => c.type === 'text').map(ch => `<div class="channel ${currentChannel?.id === ch.id ? 'active' : ''}" data-channel-id="${ch.id}" data-channel-type="text"><span>#</span><span>${escapeHtml(ch.name)}</span></div>`).join('')}
+              <div class="channel-category"><span>ГОЛОСОВЫЕ</span><button id="add-voice-channel" class="add-channel-btn" data-type="voice">+</button></div>
+              ${currentServer.channels?.filter(c => c.type === 'voice').map(ch => `<div class="channel ${currentChannel?.id === ch.id ? 'active' : ''}" data-channel-id="${ch.id}" data-channel-type="voice"><span>🎙️</span><span>${escapeHtml(ch.name)}</span></div>`).join('')}
             </div>
           ` : '<div class="channels" style="text-align:center; padding:20px;">Создайте сервер</div>'}
-          
-          <div class="user-info">
-            <span>👤 ${escapeHtml(currentUser?.nickname || '')}</span>
-            <button id="logout-btn" class="logout-btn" title="Выйти">🚪</button>
-          </div>
+          <div class="user-info"><span>👤 ${escapeHtml(currentUser?.nickname || '')}</span><button id="logout-btn" class="logout-btn">🚪</button></div>
         </div>
-        
         <div class="main-content">
-          <div class="chat-header">
-            <h2 id="channel-name">${currentChannel ? (currentChannel.type === 'voice' ? '🎙️' : '#') + ' ' + escapeHtml(currentChannel.name) : 'Выберите канал'}</h2>
-          </div>
-          <div class="messages-container" id="messages-container">
-            <div class="empty-messages">Загрузка сообщений...</div>
-          </div>
+          <div class="chat-header"><h2>${currentChannel ? (currentChannel.type === 'voice' ? '🎙️' : '#') + ' ' + escapeHtml(currentChannel.name) : 'Выберите канал'}</h2></div>
+          <div class="messages-container" id="messages-container"><div class="empty-messages">Загрузка...</div></div>
           <div id="input-area"></div>
           <div id="voice-panel"></div>
         </div>
       `;
       
-      // Рендерим область ввода или голосовую панель
       const inputArea = document.getElementById('input-area');
       const voicePanel = document.getElementById('voice-panel');
       
       if (currentChannel?.type === 'text') {
-        inputArea.innerHTML = `
-          <div class="message-input-area">
-            <input type="text" id="message-input" class="message-input" placeholder="Введите сообщение..." autocomplete="off">
-            <button id="send-btn" class="send-btn">📤</button>
-          </div>
-        `;
+        inputArea.innerHTML = `<div class="message-input-area"><input type="text" id="message-input" class="message-input" placeholder="Введите сообщение..."><button id="send-btn" class="send-btn">📤</button></div>`;
         voicePanel.innerHTML = '';
-        setupTextChat();
+        const msgInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        if (msgInput) {
+          msgInput.onkeypress = (e) => { if (e.key === 'Enter') { e.preventDefault(); const text = msgInput.value.trim(); if (text && socket) { socket.emit('send-message', { channelId: currentChannel.id, text }); msgInput.value = ''; } } };
+          msgInput.focus();
+        }
+        if (sendBtn) sendBtn.onclick = () => { const text = msgInput?.value.trim(); if (text && socket) { socket.emit('send-message', { channelId: currentChannel.id, text }); if (msgInput) msgInput.value = ''; } };
       } else if (currentChannel?.type === 'voice') {
         inputArea.innerHTML = '';
-        voicePanel.innerHTML = `
-          <div class="voice-panel">
-            <div class="voice-users" id="voice-users">👥 0 в голосе</div>
-            <button id="voice-connect-btn" class="voice-btn">🎤 Подключиться</button>
-          </div>
-        `;
-        setupVoiceChat();
+        voicePanel.innerHTML = `<div class="voice-panel"><div class="voice-users" id="voice-users">👥 0 в голосе</div><button id="voice-connect-btn" class="voice-btn">🎤 Подключиться</button></div>`;
+        const connectBtn = document.getElementById('voice-connect-btn');
+        if (connectBtn) {
+          connectBtn.onclick = async () => {
+            if (isInVoice) {
+              if (voiceStream) voiceStream.getTracks().forEach(t => t.stop());
+              peerConnections.forEach(pc => pc.close());
+              peerConnections.clear();
+              socket.emit('leave-voice', { channelId: currentChannel.id });
+              isInVoice = false;
+              connectBtn.textContent = '🎤 Подключиться';
+              connectBtn.classList.remove('leave');
+            } else {
+              try {
+                voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                socket.emit('join-voice', { channelId: currentChannel.id });
+                isInVoice = true;
+                connectBtn.textContent = '🔴 Отключиться';
+                connectBtn.classList.add('leave');
+              } catch(e) { alert('Нет доступа к микрофону'); }
+            }
+          };
+        }
       }
       
-      // Обработчики серверов
-      document.querySelectorAll('.server').forEach(el => {
-        el.onclick = () => selectServer(el.dataset.serverId);
-      });
-      
-      // Обработчики каналов
-      document.querySelectorAll('.channel').forEach(el => {
-        el.onclick = () => selectChannel(el.dataset.channelId, el.dataset.channelType);
-      });
-      
-      // Создание сервера
-      document.getElementById('add-server-btn')?.addEventListener('click', () => {
-        const name = prompt('Название сервера:');
-        if (name?.trim()) {
-          socket.emit('create-server', { name: name.trim() });
-        }
-      });
-      
-      // Создание канала
+      document.querySelectorAll('.server').forEach(el => { el.onclick = () => selectServer(el.dataset.serverId); });
+      document.querySelectorAll('.channel').forEach(el => { el.onclick = () => selectChannel(el.dataset.channelId); });
+      document.getElementById('add-server-btn')?.addEventListener('click', () => { const name = prompt('Название сервера:'); if (name?.trim()) socket.emit('create-server', { name: name.trim() }); });
       document.getElementById('add-text-channel')?.addEventListener('click', () => createChannel('text'));
       document.getElementById('add-voice-channel')?.addEventListener('click', () => createChannel('voice'));
+      document.getElementById('logout-btn')?.addEventListener('click', () => { if (socket) socket.disconnect(); localStorage.removeItem('atomcord_user'); window.location.href = '/login'; });
       
-      // Выход
-      document.getElementById('logout-btn')?.addEventListener('click', () => {
-        if (socket) socket.disconnect();
-        localStorage.removeItem('atomcord_user');
-        window.location.href = '/login.html';
-      });
-      
-      if (currentChannel?.type === 'text') {
-        renderMessages();
-      }
+      if (currentChannel?.type === 'text') renderMessages();
     }
-    
-    function setupTextChat() {
-      const messageInput = document.getElementById('message-input');
-      const sendBtn = document.getElementById('send-btn');
-      
-      if (messageInput) {
-        messageInput.onkeypress = (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            const text = messageInput.value.trim();
-            if (text && socket) {
-              socket.emit('send-message', { channelId: currentChannel.id, text });
-              messageInput.value = '';
-            }
-          }
-        };
-        messageInput.focus();
-      }
-      
-      if (sendBtn) {
-        sendBtn.onclick = () => {
-          const text = messageInput?.value.trim();
-          if (text && socket) {
-            socket.emit('send-message', { channelId: currentChannel.id, text });
-            if (messageInput) messageInput.value = '';
-          }
-        };
-      }
-    }
-    
-    // ========== ГОЛОСОВОЙ ЧАТ ==========
-    async function setupVoiceChat() {
-      const connectBtn = document.getElementById('voice-connect-btn');
-      if (!connectBtn) return;
-      
-      const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
-      
-      async function createPeerConnection(targetId) {
-        const pc = new RTCPeerConnection(configuration);
-        peerConnections.set(targetId, pc);
-        
-        if (voiceStream) {
-          voiceStream.getTracks().forEach(track => pc.addTrack(track, voiceStream));
-        }
-        
-        pc.ontrack = (event) => {
-          const audio = new Audio();
-          audio.srcObject = event.streams[0];
-          audio.autoplay = true;
-        };
-        
-        pc.onicecandidate = (event) => {
-          if (event.candidate) {
-            socket.emit('voice-ice-candidate', { targetId, candidate: event.candidate });
-          }
-        };
-        
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        socket.emit('voice-offer', { targetId, offer });
-      }
-      
-      socket.on('user-joined-voice', ({ socketId }) => {
-        if (isInVoice && socketId !== socket.id) createPeerConnection(socketId);
-        updateVoiceUsersUI();
-      });
-      
-      socket.on('user-left-voice', ({ socketId }) => {
-        const pc = peerConnections.get(socketId);
-        if (pc) { pc.close(); peerConnections.delete(socketId); }
-        updateVoiceUsersUI();
-      });
-      
-      socket.on('voice-offer', async ({ fromId, offer }) => {
-        if (!isInVoice) return;
-        const pc = new RTCPeerConnection(configuration);
-        peerConnections.set(fromId, pc);
-        if (voiceStream) voiceStream.getTracks().forEach(track => pc.addTrack(track, voiceStream));
-        pc.ontrack = (event) => { const audio = new Audio(); audio.srcObject = event.streams[0]; audio.autoplay = true; };
-        pc.onicecandidate = (event) => { if (event.candidate) socket.emit('voice-ice-candidate', { targetId: fromId, candidate: event.candidate }); };
-        await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        socket.emit('voice-answer', { targetId: fromId, answer });
-      });
-      
-      socket.on('voice-answer', async ({ fromId, answer }) => {
-        const pc = peerConnections.get(fromId);
-        if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
-      });
-      
-      socket.on('voice-ice-candidate', async ({ fromId, candidate }) => {
-        const pc = peerConnections.get(fromId);
-        if (pc) await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      });
-      
-      socket.on('voice-users', updateVoiceUsersUI);
-      
-      connectBtn.onclick = async () => {
-        if (isInVoice) {
-          if (voiceStream) voiceStream.getTracks().forEach(track => track.stop());
-          peerConnections.forEach(pc => pc.close());
-          peerConnections.clear();
-          socket.emit('leave-voice', { channelId: currentChannel.id });
-          isInVoice = false;
-          connectBtn.textContent = '🎤 Подключиться';
-          connectBtn.classList.remove('leave');
-        } else {
-          try {
-            voiceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            socket.emit('join-voice', { channelId: currentChannel.id });
-            isInVoice = true;
-            connectBtn.textContent = '🔴 Отключиться';
-            connectBtn.classList.add('leave');
-          } catch(e) { alert('Нет доступа к микрофону'); }
-        }
-      };
-    }
-    
-    function updateVoiceUsersUI() {
-      const container = document.getElementById('voice-users');
-      if (container) {
-        socket.emit('get-voice-users', currentChannel?.id, (users) => {
-          container.textContent = `👥 ${users?.length || 0} в голосе`;
-        });
-      }
-    }
-    
-    // ========== СОКЕТ СОБЫТИЯ ==========
+
+    function createChannel(type) { const name = prompt(`Название ${type === 'text' ? 'текстового' : 'голосового'} канала:`); if (name?.trim() && currentServer) socket.emit('create-channel', { serverId: currentServer.id, name: name.trim(), type }); }
+    function selectServer(id) { currentServer = servers.find(s => s.id === id); if (currentServer) socket.emit('join-server', { serverId: currentServer.id }); renderUI(); }
+    function selectChannel(id) { currentChannel = currentServer?.channels?.find(c => c.id === id); if (currentChannel?.type === 'text') socket.emit('join-text-channel', currentChannel.id); renderUI(); }
+    function renderMessages() { const container = document.getElementById('messages-container'); const msgs = messagesCache[currentChannel?.id] || []; if (!msgs.length) container.innerHTML = '<div class="empty-messages">Нет сообщений</div>'; else container.innerHTML = msgs.map(m => `<div class="message"><strong style="color:#b392f0;">${escapeHtml(m.nickname)}</strong><span>${escapeHtml(m.text)}</span></div>`).join(''); container.scrollTop = container.scrollHeight; }
+    function appendMessage(m) { const container = document.getElementById('messages-container'); if (!container) return; const div = document.createElement('div'); div.className = 'message'; div.innerHTML = `<strong style="color:#b392f0;">${escapeHtml(m.nickname)}</strong><span>${escapeHtml(m.text)}</span>`; container.appendChild(div); container.scrollTop = container.scrollHeight; const empty = container.querySelector('.empty-messages'); if (empty) empty.remove(); if (document.hidden) showNotification('Новое сообщение', `${m.nickname}: ${m.text.substring(0, 50)}`); }
+    function escapeHtml(s) { if (!s) return ''; const div = document.createElement('div'); div.textContent = s; return div.innerHTML; }
+
     function setupSocketEvents() {
-      socket.on('servers-list', (list) => {
-        servers = list;
-        if (servers.length && !currentServer) selectServer(servers[0].id);
-        renderUI();
-      });
+      socket.on('servers-list', (list) => { servers = list; if (servers.length && !currentServer) selectServer(servers[0].id); renderUI(); });
+      socket.on('server-created', (s) => { servers.push(s); renderUI(); });
+      socket.on('server-channels', (ch) => { if (currentServer) { currentServer.channels = ch; if (!currentChannel && ch.length) selectChannel(ch[0].id); renderUI(); } });
+      socket.on('channel-created', (ch) => { if (currentServer && ch.serverId === currentServer.id) { currentServer.channels.push(ch); renderUI(); } });
+      socket.on('channel-history', ({ channelId, messages }) => { messagesCache[channelId] = messages; if (currentChannel?.id === channelId) renderMessages(); });
+      socket.on('new-message', (m) => { if (!messagesCache[m.channelId]) messagesCache[m.channelId] = []; messagesCache[m.channelId].push(m); if (currentChannel?.id === m.channelId) appendMessage(m); });
       
-      socket.on('server-created', (server) => {
-        servers.push(server);
-        renderUI();
-      });
-      
-      socket.on('server-channels', (channels) => {
-        if (currentServer) {
-          currentServer.channels = channels;
-          if (!currentChannel && channels.length) selectChannel(channels[0].id, channels[0].type);
-          renderUI();
-        }
-      });
-      
-      socket.on('channel-created', (channel) => {
-        if (currentServer && channel.serverId === currentServer.id) {
-          currentServer.channels.push(channel);
-          renderUI();
-        }
-      });
-      
-      socket.on('channel-history', ({ channelId, messages }) => {
-        messagesCache[channelId] = messages;
-        if (currentChannel?.id === channelId) renderMessages();
-      });
-      
-      socket.on('new-message', (message) => {
-        if (!messagesCache[message.channelId]) messagesCache[message.channelId] = [];
-        messagesCache[message.channelId].push(message);
-        if (currentChannel?.id === message.channelId) {
-          appendMessage(message);
-          // Уведомление если не активная вкладка
-          if (document.hidden) {
-            playNotificationSound();
-            showNotification('Новое сообщение', `${message.nickname}: ${message.text.substring(0, 50)}`);
-          }
-        }
-      });
+      socket.on('user-joined-voice', ({ socketId }) => { if (isInVoice && socketId !== socket.id) createPeerConnection(socketId); updateVoiceUsers(); });
+      socket.on('user-left-voice', ({ socketId }) => { const pc = peerConnections.get(socketId); if (pc) { pc.close(); peerConnections.delete(socketId); } updateVoiceUsers(); });
+      socket.on('voice-offer', async ({ fromId, offer }) => { if (!isInVoice) return; const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }); peerConnections.set(fromId, pc); if (voiceStream) voiceStream.getTracks().forEach(t => pc.addTrack(t, voiceStream)); pc.ontrack = (e) => { const audio = new Audio(); audio.srcObject = e.streams[0]; audio.autoplay = true; }; pc.onicecandidate = (e) => { if (e.candidate) socket.emit('voice-ice-candidate', { targetId: fromId, candidate: e.candidate }); }; await pc.setRemoteDescription(new RTCSessionDescription(offer)); const answer = await pc.createAnswer(); await pc.setLocalDescription(answer); socket.emit('voice-answer', { targetId: fromId, answer }); });
+      socket.on('voice-answer', async ({ fromId, answer }) => { const pc = peerConnections.get(fromId); if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer)); });
+      socket.on('voice-ice-candidate', async ({ fromId, candidate }) => { const pc = peerConnections.get(fromId); if (pc) await pc.addIceCandidate(new RTCIceCandidate(candidate)); });
+      socket.on('voice-users', () => updateVoiceUsers());
     }
-    
-    function selectServer(serverId) {
-      currentServer = servers.find(s => s.id === serverId);
-      if (currentServer) {
-        socket.emit('join-server', { serverId: currentServer.id });
-      }
-      renderUI();
+
+    async function createPeerConnection(targetId) {
+      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      peerConnections.set(targetId, pc);
+      if (voiceStream) voiceStream.getTracks().forEach(t => pc.addTrack(t, voiceStream));
+      pc.ontrack = (e) => { const audio = new Audio(); audio.srcObject = e.streams[0]; audio.autoplay = true; };
+      pc.onicecandidate = (e) => { if (e.candidate) socket.emit('voice-ice-candidate', { targetId, candidate: e.candidate }); };
+      const offer = await pc.createOffer(); await pc.setLocalDescription(offer); socket.emit('voice-offer', { targetId, offer });
     }
-    
-    function selectChannel(channelId, type) {
-      currentChannel = currentServer?.channels?.find(c => c.id === channelId);
-      if (currentChannel?.type === 'text') {
-        socket.emit('join-text-channel', currentChannel.id);
-      }
-      renderUI();
-    }
-    
-    function createChannel(type) {
-      const name = prompt(`Название ${type === 'text' ? 'текстового' : 'голосового'} канала:`);
-      if (name?.trim() && currentServer) {
-        socket.emit('create-channel', { serverId: currentServer.id, name: name.trim(), type });
-      }
-    }
-    
-    function renderMessages() {
-      const container = document.getElementById('messages-container');
-      const messages = messagesCache[currentChannel?.id] || [];
-      if (messages.length === 0) {
-        container.innerHTML = '<div class="empty-messages">Нет сообщений. Напишите первым!</div>';
-      } else {
-        container.innerHTML = messages.map(msg => `
-          <div class="message">
-            <strong style="color:#b392f0;">${escapeHtml(msg.nickname)}</strong>
-            <span>${escapeHtml(msg.text)}</span>
-          </div>
-        `).join('');
-        container.scrollTop = container.scrollHeight;
-      }
-    }
-    
-    function appendMessage(message) {
-      const container = document.getElementById('messages-container');
-      if (!container) return;
-      const msgDiv = document.createElement('div');
-      msgDiv.className = 'message';
-      msgDiv.innerHTML = `<strong style="color:#b392f0;">${escapeHtml(message.nickname)}</strong> <span>${escapeHtml(message.text)}</span>`;
-      container.appendChild(msgDiv);
-      container.scrollTop = container.scrollHeight;
-      const empty = container.querySelector('.empty-messages');
-      if (empty) empty.remove();
-    }
-    
-    function escapeHtml(str) {
-      if (!str) return '';
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
-    }
-    
-    // ========== ЗАПУСК ==========
-    const savedUser = localStorage.getItem('atomcord_user');
-    if (!savedUser) {
-      window.location.href = '/login.html';
-    } else {
-      currentUser = JSON.parse(savedUser);
+
+    function updateVoiceUsers() { const container = document.getElementById('voice-users'); if (container) socket.emit('get-voice-users', currentChannel?.id, (users) => { container.textContent = `👥 ${users?.length || 0} в голосе`; }); }
+
+    const saved = localStorage.getItem('atomcord_user');
+    if (!saved) { window.location.href = '/login'; } else {
+      currentUser = JSON.parse(saved);
       socket = io('https://atomcord-backend.onrender.com', { transports: ['websocket', 'polling'] });
-      
-      socket.on('connect', () => {
-        socket.emit('login', { nickname: currentUser.nickname, password: currentUser.password }, (res) => {
-          if (!res?.success) {
-            localStorage.removeItem('atomcord_user');
-            window.location.href = '/login.html';
-          } else {
-            socket.emit('get-servers');
-            setupSocketEvents();
-            renderUI();
-          }
-        });
-      });
-      
-      socket.on('connect_error', () => {
-        alert('Сервер не отвечает');
-      });
+      socket.on('connect', () => { socket.emit('login', { nickname: currentUser.nickname, password: currentUser.password }, (res) => { if (!res?.success) { localStorage.removeItem('atomcord_user'); window.location.href = '/login'; } else { socket.emit('get-servers'); setupSocketEvents(); renderUI(); } }); });
+      socket.on('connect_error', () => alert('Сервер не отвечает'));
     }
   </script>
 </body>

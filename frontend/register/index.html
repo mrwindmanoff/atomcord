@@ -42,8 +42,8 @@
       <div class="login-logo">⚛️</div>
       <h1>Регистрация</h1>
       <p class="login-subtitle">Создай аккаунт</p>
-      <input type="text" id="reg-nickname" class="login-input" placeholder="Никнейм (мин 2 символа)" autocomplete="off">
-      <input type="password" id="reg-password" class="login-input" placeholder="Пароль (мин 4 символа)" autocomplete="off">
+      <input type="text" id="reg-nickname" class="login-input" placeholder="Никнейм" autocomplete="off">
+      <input type="password" id="reg-password" class="login-input" placeholder="Пароль" autocomplete="off">
       <input type="password" id="reg-confirm" class="login-input" placeholder="Подтвердите пароль" autocomplete="off">
       <button id="register-btn" class="login-button">Зарегистрироваться</button>
       <button id="back-to-login-btn" class="login-button secondary">← Назад к входу</button>
@@ -60,49 +60,31 @@
     function showError(msg) {
       errorDiv.textContent = msg;
       errorDiv.style.display = 'block';
-      setTimeout(function() {
-        errorDiv.style.display = 'none';
-      }, 3000);
+      setTimeout(function() { errorDiv.style.display = 'none'; }, 3000);
     }
 
-    function getFreshValues() {
-      // ПОЛУЧАЕМ СВЕЖИЕ ЗНАЧЕНИЯ КАЖДЫЙ РАЗ
+    window.handleRegister = function() {
       var nicknameInput = document.getElementById('reg-nickname');
       var passwordInput = document.getElementById('reg-password');
       var confirmInput = document.getElementById('reg-confirm');
       
-      return {
-        nickname: nicknameInput ? nicknameInput.value.trim() : '',
-        password: passwordInput ? passwordInput.value : '',
-        confirm: confirmInput ? confirmInput.value : '',
-        nicknameInput: nicknameInput,
-        passwordInput: passwordInput,
-        confirmInput: confirmInput
-      };
-    }
+      var nickname = nicknameInput ? nicknameInput.value.trim() : '';
+      var password = passwordInput ? passwordInput.value : '';
+      var confirm = confirmInput ? confirmInput.value : '';
 
-    window.handleRegister = function() {
-      var fresh = getFreshValues();
-      
-      console.log('Регистрация:', { 
-        nickname: fresh.nickname, 
-        password: fresh.password, 
-        confirm: fresh.confirm 
-      });
-
-      if (fresh.nickname.length < 2) {
-        showError('Никнейм должен быть минимум 2 символа');
-        if (fresh.nicknameInput) fresh.nicknameInput.focus();
+      if (nickname.length < 2) {
+        showError('Никнейм минимум 2 символа');
+        if (nicknameInput) nicknameInput.focus();
         return;
       }
-      if (fresh.password.length < 4) {
-        showError('Пароль должен быть минимум 4 символа');
-        if (fresh.passwordInput) fresh.passwordInput.focus();
+      if (password.length < 4) {
+        showError('Пароль минимум 4 символа');
+        if (passwordInput) passwordInput.focus();
         return;
       }
-      if (fresh.password !== fresh.confirm) {
+      if (password !== confirm) {
         showError('Пароли не совпадают');
-        if (fresh.confirmInput) fresh.confirmInput.focus();
+        if (confirmInput) confirmInput.focus();
         return;
       }
 
@@ -112,16 +94,15 @@
       var socket = io('https://atomcord-backend.onrender.com', { transports: ['websocket', 'polling'] });
 
       socket.on('connect', function() {
-        socket.emit('register', { nickname: fresh.nickname, password: fresh.password }, function(response) {
+        socket.emit('register', { nickname: nickname, password: password }, function(response) {
           if (response && response.success) {
-            localStorage.setItem('atomcord_user', JSON.stringify({ nickname: fresh.nickname, password: fresh.password }));
-            window.location.href = '/chat.html';
+            localStorage.setItem('atomcord_user', JSON.stringify({ nickname: nickname, password: password }));
+            window.location.href = '/chat';
           } else {
             showError(response?.error || 'Ошибка регистрации');
             registerBtn.disabled = false;
             registerBtn.textContent = 'Зарегистрироваться';
-            var nick = document.getElementById('reg-nickname');
-            if (nick) nick.focus();
+            if (nicknameInput) nicknameInput.focus();
           }
         });
       });
@@ -130,15 +111,13 @@
         showError('Сервер не отвечает');
         registerBtn.disabled = false;
         registerBtn.textContent = 'Зарегистрироваться';
-        var nick = document.getElementById('reg-nickname');
-        if (nick) nick.focus();
+        if (nicknameInput) nicknameInput.focus();
       });
     };
 
     registerBtn.onclick = window.handleRegister;
-    backBtn.onclick = function() { window.location.href = '/login.html'; };
+    backBtn.onclick = function() { window.location.href = '/login'; };
     
-    // Enter на полях - тоже каждый раз получаем свежие значения
     document.addEventListener('keypress', function(e) {
       if (e.key === 'Enter') {
         var active = document.activeElement;
@@ -149,13 +128,10 @@
       }
     });
     
-    // Фокус на поле никнейма
-    var initialNick = document.getElementById('reg-nickname');
-    if (initialNick) initialNick.focus();
+    var nick = document.getElementById('reg-nickname');
+    if (nick) nick.focus();
 
-    // Хард-фикс клавиатуры (НЕ удаляет переменные)
     (function hardFix() {
-      console.log('⚡ Хард-фикс для register.html');
       function fix() {
         document.querySelectorAll('input, textarea').forEach(function(el) {
           if (el.hasAttribute('data-fixed')) return;
