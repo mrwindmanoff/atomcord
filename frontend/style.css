@@ -612,3 +612,27 @@ body {
 .copy-btn:hover {
   background: var(--accent-primary-hover);
 }
+/* Убираем мигание при наведении */
+.server-icon, .dm-icon, .add-server-icon, .sidebar-btn, .channel, .member {
+  transition: all 0.15s ease-out;
+  will-change: auto;
+}
+
+/* Запрещаем перерисовку фона при наведении */
+.server-icon:hover, .dm-icon:hover {
+  background: #5865f2;
+  border-radius: 16px;
+  transition: 0.1s;
+}
+
+/* Убираем мигание у кнопки "Создать сервер" */
+.add-server-icon {
+  background: #1a1a2a;
+  color: #3ba55d;
+  transition: 0.1s;
+}
+
+.add-server-icon:hover {
+  background: #3ba55d;
+  color: white;
+}
