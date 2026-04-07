@@ -6,12 +6,13 @@ export function handleConnection(socket) {
   // Регистрация с паролем
   socket.on('register', ({ nickname, password }, callback) => {
     console.log(`📝 Регистрация: ${nickname}`);
+    
+    // ВОТ ЭТА СТРОКА БЫЛА ПРОПУЩЕНА!
     const result = registerUser(nickname, password);
     
     if (result.success) {
       const user = addUser(socket.id, nickname, result.user.id);
       
-      // Добавляем пользователя в его персональную комнату для ЛС
       socket.join(`user_${result.user.id}`);
       
       io.emit('users-list', getAllUsers());
@@ -30,15 +31,14 @@ export function handleConnection(socket) {
   // Вход с паролем
   socket.on('login', ({ nickname, password }, callback) => {
     console.log(`🔐 Вход: ${nickname}`);
+    
+    // ТО ЖЕ САМОЕ ДЛЯ LOGIN
     const result = loginUser(nickname, password);
     
     if (result.success) {
       const user = addUser(socket.id, nickname, result.user.id);
       
-      // Добавляем пользователя в его персональную комнату для ЛС
       socket.join(`user_${result.user.id}`);
-      
-      // Отправляем список всех пользователей для глобального поиска
       socket.emit('all-users', getAllUsers());
       
       callback({ 
