@@ -1,8 +1,8 @@
 import { io } from '../server.js';
 import { getUser, getUserById, getAllUsers } from '../store/users.js';
 
-const messages = []; // { id, channelId, text, nickname, userId, timestamp }
-const dms = []; // { id, fromUserId, toUserId, text, fromNickname, timestamp }
+const messages = [];
+const dms = [];
 
 export function handleMessages(socket) {
   
@@ -31,7 +31,6 @@ export function handleMessages(socket) {
     if (callback) callback({ success: true, message });
   });
   
-  // ЛИЧНЫЕ СООБЩЕНИЯ
   socket.on('send-dm', ({ targetUserId, text }, callback) => {
     const user = getUser(socket.id);
     if (!user || !text?.trim()) return;
@@ -61,7 +60,6 @@ export function handleMessages(socket) {
     if (callback) callback({ success: true });
   });
   
-  // Получить всех пользователей для глобального поиска (ИСПРАВЛЕНО)
   socket.on('get-all-users', (callback) => {
     const allUsers = getAllUsers();
     if (callback && typeof callback === 'function') {
