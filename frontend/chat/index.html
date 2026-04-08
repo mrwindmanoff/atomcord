@@ -226,6 +226,19 @@
     let lastActivityTime = 0;
     let initiatingPeers = new Set();
     
+    // WebRTC конфигурация с TURN серверами (для обхода NAT)
+    const RTC_CONFIG = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+      ],
+      iceCandidatePoolSize: 10
+    };
+    
     const defaultAvatars = ['⚛️', '😀', '😂', '😎', '🥳', '😍', '🔥', '💀', '👻', '🤖', '🐱', '🐶', '🦊', '🐼', '🍕', '🎮', '💪', '🎧', '📷', '✈️'];
     
     let userProfile = {
@@ -503,14 +516,7 @@
       if (initiatingPeers.has(targetId)) return;
       initiatingPeers.add(targetId);
       
-      const configuration = {
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
-        ]
-      };
-      
-      const pc = new RTCPeerConnection(configuration);
+      const pc = new RTCPeerConnection(RTC_CONFIG);
       peerConnections.set(targetId, pc);
       
       if (voiceStream) {
@@ -1000,14 +1006,7 @@
         if (!isInVoice || fromId === socket.id) return;
         if (peerConnections.has(fromId)) return;
         
-        const configuration = {
-          iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'stun:stun1.l.google.com:19302' }
-          ]
-        };
-        
-        const pc = new RTCPeerConnection(configuration);
+        const pc = new RTCPeerConnection(RTC_CONFIG);
         peerConnections.set(fromId, pc);
         
         if (voiceStream) {
