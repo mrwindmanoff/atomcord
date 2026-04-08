@@ -224,6 +224,7 @@
     let renderTimeout = null;
     let isRendering = false;
     let lastActivityTime = 0;
+    let initiatingPeers = new Set();
     
     const defaultAvatars = ['⚛️', '😀', '😂', '😎', '🥳', '😍', '🔥', '💀', '👻', '🤖', '🐱', '🐶', '🦊', '🐼', '🍕', '🎮', '💪', '🎧', '📷', '✈️'];
     
@@ -447,17 +448,26 @@
     
     async function joinVoiceChannel() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         voiceStream = stream;
-        peerConnections.forEach(pc => pc.close());
         peerConnections.clear();
+        initiatingPeers.clear();
         socket.emit('join-voice', { channelId: currentChannel.id }, (response) => {
           if (response && response.success) {
             isInVoice = true;
             const connectBtn = document.getElementById('voice-connect-btn');
-            if (connectBtn) { connectBtn.textContent = '🔴 Отключиться'; connectBtn.classList.add('leave'); }
+            if (connectBtn) { 
+              connectBtn.textContent = '🔴 Отключиться'; 
+              connectBtn.classList.add('leave'); 
+            }
             socket.emit('get-voice-users', currentChannel.id, (users) => {
-              if (users) users.forEach(user => { if (user.socketId !== socket.id) createPeerConnection(user.socketId); });
+              if (users) {
+                users.forEach(user => {
+                  if (user.socketId !== socket.id && !peerConnections.has(user.socketId)) {
+                    createPeerConnection(user.socketId);
+                  }
+                });
+              }
             });
           }
         });
@@ -468,35 +478,39 @@
       if (voiceStream) { voiceStream.getTracks().forEach(track => track.stop()); voiceStream = null; }
       peerConnections.forEach(pc => pc.close());
       peerConnections.clear();
+      initiatingPeers.clear();
       socket.emit('leave-voice', { channelId: currentChannel.id });
       isInVoice = false;
       const connectBtn = document.getElementById('voice-connect-btn');
-      if (connectBtn) { connectBtn.textContent = '🎤 Подключиться'; connectBtn.classList.remove('leave'); }
+      if (connectBtn) { 
+        connectBtn.textContent = '🎤 Подключиться'; 
+        connectBtn.classList.remove('leave'); 
+      }
       const voiceUsersDiv = document.getElementById('voice-users');
       if (voiceUsersDiv) voiceUsersDiv.textContent = '👥 0 в голосе';
     }
     
     async function createPeerConnection(targetId) {
-      let pc = peerConnections.get(targetId);
-      if (pc) {
-        if (pc.connectionState === 'connected' || pc.connectionState === 'connecting') {
-          console.log('⚠️ Соединение уже существует с:', targetId);
-          return pc;
+      if (peerConnections.has(targetId)) {
+        const existing = peerConnections.get(targetId);
+        if (existing.connectionState === 'connected' || existing.connectionState === 'connecting') {
+          return existing;
         }
-        console.log('⚠️ Закрываем старое соединение с:', targetId);
-        pc.close();
+        existing.close();
         peerConnections.delete(targetId);
       }
+      
+      if (initiatingPeers.has(targetId)) return;
+      initiatingPeers.add(targetId);
       
       const configuration = {
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
           { urls: 'stun:stun1.l.google.com:19302' }
-        ],
-        iceCandidatePoolSize: 10
+        ]
       };
       
-      pc = new RTCPeerConnection(configuration);
+      const pc = new RTCPeerConnection(configuration);
       peerConnections.set(targetId, pc);
       
       if (voiceStream) {
@@ -506,19 +520,15 @@
       }
       
       pc.ontrack = (event) => {
-        console.log('🎵 Получен аудио поток от:', targetId);
+        console.log('🎵 Получен аудио поток');
         const audio = new Audio();
         audio.srcObject = event.streams[0];
         audio.autoplay = true;
-        audio.volume = 0.5;
       };
       
       pc.onicecandidate = (event) => {
         if (event.candidate) {
-          socket.emit('voice-ice-candidate', {
-            targetId: targetId,
-            candidate: event.candidate
-          });
+          socket.emit('voice-ice-candidate', { targetId, candidate: event.candidate });
         }
       };
       
@@ -529,17 +539,14 @@
         }
       };
       
-      pc.onconnectionstatechange = () => {
-        console.log(`Соединение с ${targetId}: ${pc.connectionState}`);
-      };
-      
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         socket.emit('voice-offer', { targetId, offer });
-        console.log('📤 Offer отправлен для:', targetId);
       } catch (err) {
         console.error('Ошибка при создании offer:', err);
+      } finally {
+        initiatingPeers.delete(targetId);
       }
       
       return pc;
@@ -975,13 +982,13 @@
       socket.on('server-members', ({ serverId, members }) => { if (currentServer && currentServer.id === serverId) { currentServer.members = members; renderUI(); } });
       socket.on('all-users', (users) => { allUsers = users; });
       socket.on('user-status-update', ({ userId, status, lastActivity }) => { userStatuses.set(userId, { status, lastActivity }); if (currentServer && currentServer.members?.some(m => m.userId === userId)) { const memberDiv = document.querySelector(`.member[data-user-id="${userId}"] .member-status-dot`); if (memberDiv) { memberDiv.className = `member-status-dot ${status}`; const statusSpan = memberDiv.parentElement?.querySelector('.member-status span:last-child'); if (statusSpan) statusSpan.textContent = { online: 'В сети', away: 'Отошёл', offline: 'Не в сети' }[status]; } } });
-      socket.on('user-joined-voice', ({ socketId, nickname }) => { 
-        console.log(`👤 ${nickname} зашёл в голос`);
-        if (isInVoice && socketId !== socket.id) createPeerConnection(socketId); 
+      socket.on('user-joined-voice', ({ socketId }) => { 
+        if (isInVoice && socketId !== socket.id && !peerConnections.has(socketId)) {
+          createPeerConnection(socketId);
+        }
         updateVoiceUsers(); 
       });
-      socket.on('user-left-voice', ({ socketId, nickname }) => { 
-        console.log(`👋 ${nickname} вышел из голоса`);
+      socket.on('user-left-voice', ({ socketId }) => { 
         const pc = peerConnections.get(socketId); 
         if (pc) { 
           pc.close(); 
@@ -991,15 +998,7 @@
       });
       socket.on('voice-offer', async ({ fromId, offer }) => { 
         if (!isInVoice || fromId === socket.id) return;
-        console.log('📞 Получен offer от:', fromId);
-        
-        let pc = peerConnections.get(fromId);
-        if (pc && pc.signalingState !== 'stable') {
-          console.log('⚠️ Закрываем старое соединение, состояние:', pc.signalingState);
-          pc.close();
-          peerConnections.delete(fromId);
-          pc = null;
-        }
+        if (peerConnections.has(fromId)) return;
         
         const configuration = {
           iceServers: [
@@ -1008,7 +1007,7 @@
           ]
         };
         
-        pc = new RTCPeerConnection(configuration);
+        const pc = new RTCPeerConnection(configuration);
         peerConnections.set(fromId, pc);
         
         if (voiceStream) {
@@ -1018,11 +1017,9 @@
         }
         
         pc.ontrack = (event) => {
-          console.log('🎵 Получен аудио поток от:', fromId);
           const audio = new Audio();
           audio.srcObject = event.streams[0];
           audio.autoplay = true;
-          audio.volume = 0.5;
         };
         
         pc.onicecandidate = (event) => {
@@ -1032,14 +1029,6 @@
               candidate: event.candidate
             });
           }
-        };
-        
-        pc.oniceconnectionstatechange = () => {
-          console.log(`ICE состояние с ${fromId}: ${pc.iceConnectionState}`);
-        };
-        
-        pc.onconnectionstatechange = () => {
-          console.log(`Соединение с ${fromId}: ${pc.connectionState}`);
         };
         
         try {
@@ -1055,31 +1044,12 @@
       });
       socket.on('voice-answer', async ({ fromId, answer }) => { 
         const pc = peerConnections.get(fromId); 
-        if (!pc) {
-          console.log('⚠️ Нет PeerConnection для ответа от:', fromId);
-          return;
-        }
-        
-        if (pc.signalingState !== 'have-local-offer') {
-          console.log(`⚠️ Неправильное состояние для ответа: ${pc.signalingState}, ожидалось have-local-offer`);
-          if (pc.signalingState === 'stable') {
-            console.log('🔄 Состояние stable, пересоздаём offer');
-            try {
-              const offer = await pc.createOffer();
-              await pc.setLocalDescription(offer);
-              socket.emit('voice-offer', { targetId: fromId, offer });
-            } catch (err) {
-              console.error('Ошибка при пересоздании offer:', err);
-            }
+        if (pc) {
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(answer));
+          } catch (err) {
+            console.error('Ошибка в voice-answer:', err);
           }
-          return;
-        }
-        
-        try {
-          await pc.setRemoteDescription(new RTCSessionDescription(answer));
-          console.log('✅ Ответ установлен успешно');
-        } catch (err) {
-          console.error('Ошибка в voice-answer:', err);
         }
       });
       socket.on('voice-ice-candidate', async ({ fromId, candidate }) => { 
