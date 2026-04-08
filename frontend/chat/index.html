@@ -123,27 +123,6 @@
     .voice-btn { padding: 8px 16px; background: #3ba55d; border: none; border-radius: 8px; color: white; cursor: pointer; }
     .voice-btn.leave { background: #ed4245; }
     
-    .welcome-screen {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100%;
-      gap: 20px;
-    }
-    .welcome-screen h2 { font-size: 28px; }
-    .welcome-screen p { color: #888; }
-    .welcome-buttons { display: flex; gap: 12px; }
-    .welcome-btn {
-      padding: 10px 20px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .welcome-btn.create { background: #5865f2; color: white; }
-    .welcome-btn.join { background: #2a2a3a; color: white; }
-    
     .modal {
       position: fixed;
       top: 0;
@@ -218,8 +197,6 @@
     let renderTimeout = null;
     let isRendering = false;
     let lastActivityTime = 0;
-    
-    const defaultAvatars = ['⚛️', '😀', '😂', '😎', '🥳', '😍', '🔥', '💀', '👻', '🤖', '🐱', '🐶', '🦊', '🐼', '🍕', '🎮', '💪', '🎧', '📷', '✈️'];
     
     let userProfile = {
       nickname: '',
@@ -353,7 +330,6 @@
       renderUI();
     }
     
-    // ========== ГОЛОСОВЫЕ ФУНКЦИИ ==========
     async function joinVoiceChannel() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
@@ -406,7 +382,6 @@
       });
     }
     
-    // ========== ОСНОВНЫЕ ФУНКЦИИ ==========
     function renderUI() {
       if (isRendering) return;
       isRendering = true;
@@ -416,28 +391,7 @@
         try {
           const app = document.getElementById('app');
           
-          // Если нет серверов и нет активного диалога — показываем приветствие
-          if (servers.length === 0 && !currentDM) {
-            app.innerHTML = `
-              <div class="welcome-screen">
-                <div style="font-size:64px;">⚛️</div>
-                <h2>Добро пожаловать в AtomCord!</h2>
-                <p>Создайте свой первый сервер или вступите по ссылке</p>
-                <div class="welcome-buttons">
-                  <button class="welcome-btn create" id="welcome-create-server">➕ Создать сервер</button>
-                  <button class="welcome-btn join" id="welcome-join-invite">🔗 Вступить по ссылке</button>
-                </div>
-              </div>
-            `;
-            document.getElementById('welcome-create-server')?.addEventListener('click', () => {
-              const name = prompt('Название сервера:');
-              if (name) socket.emit('create-server', { name });
-            });
-            document.getElementById('welcome-join-invite')?.addEventListener('click', joinByInvite);
-            isRendering = false;
-            return;
-          }
-          
+          // Если нет серверов и нет активного диалога — показываем пустой сайдбар с кнопками
           const filteredMembers = currentServer?.members?.filter(m => m.nickname.toLowerCase().includes(memberSearchQuery.toLowerCase())) || [];
           
           app.innerHTML = `
@@ -499,7 +453,16 @@
                     <div>${escapeHtml(currentDM.nickname)}</div>
                   </div>
                 </div>
-              ` : '<div class="channels" style="text-align:center; padding:20px;">Создайте или вступите в сервер<br>или начните диалог</div>'}
+              ` : `
+                <div class="server-header" style="cursor:default;">
+                  <span>AtomCord</span>
+                </div>
+                <div class="channels" style="text-align:center; padding:20px;">
+                  <p style="margin-bottom:16px;">У вас нет серверов</p>
+                  <button id="empty-create-server" style="background:#5865f2; border:none; padding:8px 16px; border-radius:8px; color:white; cursor:pointer; margin-bottom:8px; width:100%;">➕ Создать сервер</button>
+                  <button id="empty-join-invite" style="background:#2a2a3a; border:none; padding:8px 16px; border-radius:8px; color:white; cursor:pointer; width:100%;">🔗 Вступить по ссылке</button>
+                </div>
+              `}
             </div>
             
             <div class="main-content">
@@ -650,9 +613,16 @@
       });
       
       document.getElementById('user-panel')?.addEventListener('click', () => {
-        // Показываем профиль (можно добавить позже)
         alert('Редактирование профиля в разработке');
       });
+      
+      // Обработчики для кнопок в пустом состоянии
+      document.getElementById('empty-create-server')?.addEventListener('click', () => {
+        const name = prompt('Название сервера:');
+        if (name) socket.emit('create-server', { name });
+      });
+      
+      document.getElementById('empty-join-invite')?.addEventListener('click', joinByInvite);
       
       const inputArea = document.getElementById('input-area');
       const voicePanel = document.getElementById('voice-panel');
