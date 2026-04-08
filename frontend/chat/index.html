@@ -35,14 +35,10 @@
       justify-content: center;
       cursor: pointer;
       transition: all 0.08s ease-out;
-      will-change: transform;
-      backface-visibility: hidden;
       font-weight: bold;
       font-size: 18px;
-      position: relative;
     }
-    .server-icon img, .dm-icon img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; }
-    .server-icon:hover, .dm-icon:hover { border-radius: 16px; background: #5865f2; transform: scale(1.02); }
+    .server-icon:hover, .dm-icon:hover { border-radius: 16px; background: #5865f2; }
     .server-icon.active, .dm-icon.active { border-radius: 16px; background: #5865f2; }
     .add-server-icon { background: #1a1a2a; color: #3ba55d; font-size: 24px; }
     .add-server-icon:hover { background: #3ba55d; color: white; }
@@ -58,8 +54,8 @@
     .close-dm-btn { background: none; border: none; color: #888; cursor: pointer; font-size: 14px; }
     .channels { flex: 1; padding: 8px; overflow-y: auto; }
     .channel-category { font-size: 12px; text-transform: uppercase; color: #888; margin: 16px 0 8px 0; display: flex; justify-content: space-between; align-items: center; }
-    .channel { padding: 6px 8px; border-radius: 6px; cursor: pointer; color: #888; font-size: 14px; display: flex; align-items: center; gap: 8px; transition: all 0.08s ease-out; }
-    .channel:hover { background: #2a2a3a; color: white; transform: translateX(2px); }
+    .channel { padding: 6px 8px; border-radius: 6px; cursor: pointer; color: #888; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    .channel:hover { background: #2a2a3a; color: white; }
     .channel.active { background: #4a4a6a; color: white; }
     .add-channel-btn { background: none; border: none; color: #888; cursor: pointer; font-size: 14px; }
     
@@ -74,10 +70,9 @@
     .search-box { padding: 12px; border-bottom: 1px solid #2a2a3a; }
     .search-input { width: 100%; padding: 8px 12px; background: #2a2a3a; border: none; border-radius: 8px; color: white; font-size: 13px; }
     .members-list { flex: 1; overflow-y: auto; padding: 8px; }
-    .member { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; cursor: pointer; transition: all 0.08s ease-out; }
-    .member:hover { background: #2a2a3a; transform: translateX(2px); }
+    .member { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; cursor: pointer; }
+    .member:hover { background: #2a2a3a; }
     .member-avatar { width: 32px; height: 32px; background: #5865f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-    .member-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .member-info { flex: 1; }
     .member-name { font-size: 14px; font-weight: 500; }
     .member-status { font-size: 10px; color: #888; display: flex; align-items: center; gap: 4px; }
@@ -93,11 +88,9 @@
       align-items: center;
       gap: 12px;
       cursor: pointer;
-      transition: all 0.08s ease-out;
     }
     .user-panel:hover { background: #2a2a3a; }
     .user-avatar { width: 40px; height: 40px; background: #5865f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-    .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .user-info { flex: 1; }
     .user-nickname { font-size: 14px; font-weight: 500; }
     .user-custom-status { font-size: 10px; color: #888; }
@@ -107,13 +100,12 @@
     .global-search { display: flex; gap: 8px; align-items: center; position: relative; }
     .global-search-input { padding: 6px 12px; background: #2a2a3a; border: none; border-radius: 20px; color: white; width: 200px; }
     .global-search-results { position: absolute; top: 35px; right: 0; background: #1a1a2a; border-radius: 8px; width: 250px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
-    .search-result-item { padding: 10px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: all 0.08s ease-out; }
+    .search-result-item { padding: 10px; cursor: pointer; display: flex; align-items: center; gap: 10px; }
     .search-result-item:hover { background: #2a2a3a; }
     
     .messages-container { flex: 1; overflow-y: auto; padding: 20px; }
     .message { margin-bottom: 12px; animation: fadeIn 0.2s; display: flex; align-items: flex-start; gap: 12px; }
     .message-avatar { width: 32px; height: 32px; background: #5865f2; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-    .message-avatar img { width: 100%; height: 100%; object-fit: cover; }
     .message-content { flex: 1; }
     .message-header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
     .message-nickname { font-weight: 600; color: #b392f0; }
@@ -124,13 +116,33 @@
     .message-input-area { padding: 16px; border-top: 1px solid #2a2a3a; background: #1a1a2a; display: flex; gap: 12px; }
     .message-input { flex: 1; padding: 12px; background: #2a2a3a; border: none; border-radius: 8px; color: white; outline: none; }
     .message-input:focus { outline: 2px solid #5865f2; }
-    .send-btn { padding: 12px 20px; background: #5865f2; border: none; border-radius: 8px; color: white; cursor: pointer; transition: all 0.08s ease-out; }
-    .send-btn:hover { background: #4752c4; transform: scale(1.02); }
+    .send-btn { padding: 12px 20px; background: #5865f2; border: none; border-radius: 8px; color: white; cursor: pointer; }
+    .send-btn:hover { background: #4752c4; }
     
     .voice-panel { background: #1a1a2a; border-top: 1px solid #2a2a3a; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
-    .voice-btn { padding: 8px 16px; background: #3ba55d; border: none; border-radius: 8px; color: white; cursor: pointer; transition: all 0.08s ease-out; }
-    .voice-btn:hover { transform: scale(1.02); filter: brightness(1.05); }
+    .voice-btn { padding: 8px 16px; background: #3ba55d; border: none; border-radius: 8px; color: white; cursor: pointer; }
     .voice-btn.leave { background: #ed4245; }
+    
+    .welcome-screen {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      gap: 20px;
+    }
+    .welcome-screen h2 { font-size: 28px; }
+    .welcome-screen p { color: #888; }
+    .welcome-buttons { display: flex; gap: 12px; }
+    .welcome-btn {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .welcome-btn.create { background: #5865f2; color: white; }
+    .welcome-btn.join { background: #2a2a3a; color: white; }
     
     .modal {
       position: fixed;
@@ -151,7 +163,7 @@
       width: 400px;
       text-align: center;
     }
-    .modal-content input, .modal-content textarea, .modal-content select {
+    .modal-content input, .modal-content textarea {
       width: 100%;
       padding: 10px;
       margin: 8px 0;
@@ -160,35 +172,6 @@
       border-radius: 8px;
       color: white;
     }
-    .avatar-preview {
-      width: 80px;
-      height: 80px;
-      background: #5865f2;
-      border-radius: 50%;
-      margin: 0 auto 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 32px;
-      overflow: hidden;
-      cursor: pointer;
-    }
-    .avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
-    .avatar-options { display: flex; gap: 8px; justify-content: center; margin: 12px 0; flex-wrap: wrap; }
-    .avatar-option {
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      cursor: pointer;
-      border: 2px solid transparent;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      background: #2a2a3a;
-      transition: all 0.08s ease-out;
-    }
-    .avatar-option:hover { border-color: #5865f2; transform: scale(1.05); }
     .invite-link {
       background: #2a2a3a;
       padding: 8px;
@@ -296,62 +279,6 @@
       return modal;
     }
 
-    function showProfileEditor() {
-      const avatarHtml = defaultAvatars.map(a => `<div class="avatar-option" data-avatar="${a}">${a}</div>`).join('');
-      showModal('Редактировать профиль', `
-        <div class="avatar-preview" id="avatar-preview">${userProfile.avatar || '⚛️'}</div>
-        <div class="avatar-options" id="avatar-options">${avatarHtml}</div>
-        <input type="file" id="avatar-file" accept="image/*" style="display:none;">
-        <button id="upload-avatar-btn" class="modal-confirm" style="margin-bottom:12px;">📁 Загрузить фото</button>
-        <input type="text" id="edit-firstname" placeholder="Имя" value="${escapeHtml(userProfile.firstName || '')}">
-        <input type="text" id="edit-lastname" placeholder="Фамилия" value="${escapeHtml(userProfile.lastName || '')}">
-        <textarea id="edit-about" placeholder="О себе">${escapeHtml(userProfile.about || '')}</textarea>
-        <input type="text" id="edit-status" placeholder="Статус" value="${escapeHtml(userProfile.customStatus || '')}">
-        <div><button class="modal-confirm" id="modal-confirm">Сохранить</button><button class="modal-cancel" id="modal-cancel">Отмена</button></div>
-      `, () => {
-        userProfile.firstName = document.getElementById('edit-firstname')?.value || '';
-        userProfile.lastName = document.getElementById('edit-lastname')?.value || '';
-        userProfile.about = document.getElementById('edit-about')?.value || '';
-        userProfile.customStatus = document.getElementById('edit-status')?.value || '';
-        saveProfile();
-        renderUI();
-        showNotification('Профиль обновлён', 'Изменения сохранены');
-      });
-      
-      document.querySelectorAll('.avatar-option').forEach(opt => {
-        opt.onclick = () => {
-          const avatar = opt.dataset.avatar;
-          userProfile.avatar = avatar;
-          const preview = document.getElementById('avatar-preview');
-          if (preview) preview.innerHTML = avatar;
-          saveProfile();
-        };
-      });
-      
-      const uploadBtn = document.getElementById('upload-avatar-btn');
-      const fileInput = document.getElementById('avatar-file');
-      if (uploadBtn) {
-        uploadBtn.onclick = () => fileInput.click();
-      }
-      if (fileInput) {
-        fileInput.onchange = (e) => {
-          const file = e.target.files[0];
-          if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = (event) => {
-              userProfile.avatar = event.target.result;
-              const preview = document.getElementById('avatar-preview');
-              if (preview) preview.innerHTML = `<img src="${event.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
-              saveProfile();
-            };
-            reader.readAsDataURL(file);
-          } else {
-            alert('Пожалуйста, выберите изображение');
-          }
-        };
-      }
-    }
-    
     function createInvite(serverId) {
       socket.emit('create-invite', { serverId, maxUses: 0, expiresInHours: 168 }, (res) => {
         if (res?.success) {
@@ -487,21 +414,298 @@
       if (renderTimeout) clearTimeout(renderTimeout);
       renderTimeout = setTimeout(() => {
         try {
-          const filteredMembers = currentServer?.members?.filter(m => m.nickname.toLowerCase().includes(memberSearchQuery.toLowerCase())) || [];
           const app = document.getElementById('app');
-          app.innerHTML = `...`; // Здесь весь HTML (он очень длинный, но он есть в предыдущей версии)
+          
+          // Если нет серверов и нет активного диалога — показываем приветствие
+          if (servers.length === 0 && !currentDM) {
+            app.innerHTML = `
+              <div class="welcome-screen">
+                <div style="font-size:64px;">⚛️</div>
+                <h2>Добро пожаловать в AtomCord!</h2>
+                <p>Создайте свой первый сервер или вступите по ссылке</p>
+                <div class="welcome-buttons">
+                  <button class="welcome-btn create" id="welcome-create-server">➕ Создать сервер</button>
+                  <button class="welcome-btn join" id="welcome-join-invite">🔗 Вступить по ссылке</button>
+                </div>
+              </div>
+            `;
+            document.getElementById('welcome-create-server')?.addEventListener('click', () => {
+              const name = prompt('Название сервера:');
+              if (name) socket.emit('create-server', { name });
+            });
+            document.getElementById('welcome-join-invite')?.addEventListener('click', joinByInvite);
+            isRendering = false;
+            return;
+          }
+          
+          const filteredMembers = currentServer?.members?.filter(m => m.nickname.toLowerCase().includes(memberSearchQuery.toLowerCase())) || [];
+          
+          app.innerHTML = `
+            <div class="servers-bar">
+              ${servers.map(s => `
+                <div class="server-icon ${currentServer?.id === s.id && !currentDM ? 'active' : ''}" data-server-id="${s.id}" title="${escapeHtml(s.name)}">
+                  ${s.avatar ? `<img src="${s.avatar}">` : s.name.charAt(0).toUpperCase()}
+                </div>
+              `).join('')}
+              <div class="dm-divider"></div>
+              ${dms.map(dm => `
+                <div class="dm-icon ${currentDM?.userId === dm.userId ? 'active' : ''}" data-dm-user="${dm.userId}" title="${escapeHtml(dm.nickname)}">
+                  ${dm.avatar ? (dm.avatar.startsWith('data:') ? `<img src="${dm.avatar}">` : dm.avatar) : '💬'}
+                </div>
+              `).join('')}
+              <div class="server-icon add-server-icon" id="create-server-btn" title="Создать сервер">+</div>
+              <div class="server-icon" id="join-invite-btn" title="Вступить по ссылке" style="background:#1a1a2a; color:#faa81a;">🔗</div>
+            </div>
+            
+            <div class="sidebar">
+              ${currentServer ? `
+                <div class="server-header">
+                  ${escapeHtml(currentServer.name)}
+                  ${(currentServer.myRole === 'owner' || (currentServer.myPermissions && currentServer.myPermissions.includes('create_invite'))) ? 
+                    `<button id="create-invite-btn" style="background:none; border:none; color:#888; cursor:pointer;" title="Создать приглашение">🔗</button>` : ''}
+                </div>
+                <div class="channels">
+                  <div class="channel-category">
+                    <span>ТЕКСТОВЫЕ КАНАЛЫ</span>
+                    ${(currentServer.myRole === 'owner' || (currentServer.myPermissions && currentServer.myPermissions.includes('manage_channels'))) ? 
+                      `<button id="add-text-channel" class="add-channel-btn" title="Создать канал">+</button>` : ''}
+                  </div>
+                  ${currentServer.channels?.filter(c => c.type === 'text').map(ch => `
+                    <div class="channel ${currentChannel?.id === ch.id && !currentDM ? 'active' : ''}" data-channel-id="${ch.id}" data-channel-type="text">
+                      <span>#</span>
+                      <span>${escapeHtml(ch.name)}</span>
+                    </div>
+                  `).join('')}
+                  <div class="channel-category">
+                    <span>ГОЛОСОВЫЕ КАНАЛЫ</span>
+                    ${(currentServer.myRole === 'owner' || (currentServer.myPermissions && currentServer.myPermissions.includes('manage_channels'))) ? 
+                      `<button id="add-voice-channel" class="add-channel-btn" title="Создать голосовой канал">+</button>` : ''}
+                  </div>
+                  ${currentServer.channels?.filter(c => c.type === 'voice').map(ch => `
+                    <div class="channel ${currentChannel?.id === ch.id && !currentDM ? 'active' : ''}" data-channel-id="${ch.id}" data-channel-type="voice">
+                      <span>🎙️</span>
+                      <span>${escapeHtml(ch.name)}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              ` : currentDM ? `
+                <div class="server-header">
+                  <span>📩 ${escapeHtml(currentDM.nickname)}</span>
+                  <button class="close-dm-btn" id="close-dm-btn" title="Закрыть диалог">✕</button>
+                </div>
+                <div class="dm-list">
+                  <div class="dm-item active">
+                    <div class="dm-avatar" style="width:32px;height:32px;background:#5865f2;border-radius:50%;display:flex;align-items:center;justify-content:center;">${currentDM.avatar || '👤'}</div>
+                    <div>${escapeHtml(currentDM.nickname)}</div>
+                  </div>
+                </div>
+              ` : '<div class="channels" style="text-align:center; padding:20px;">Создайте или вступите в сервер<br>или начните диалог</div>'}
+            </div>
+            
+            <div class="main-content">
+              <div class="chat-header">
+                <h2>${currentServer ? (currentChannel ? '#' + currentChannel.name : currentServer.name) : (currentDM ? `📩 ${currentDM.nickname}` : 'AtomCord')}</h2>
+                <div class="global-search">
+                  <input type="text" id="global-search-input" class="global-search-input" placeholder="🔍 Поиск пользователей..." autocomplete="off">
+                  ${showGlobalSearch && globalSearchResults.length > 0 ? `
+                    <div class="global-search-results">
+                      ${globalSearchResults.map(u => `
+                        <div class="search-result-item" data-user-id="${u.userId}" data-user-nick="${escapeHtml(u.nickname)}">
+                          <div class="member-avatar" style="width:32px;height:32px;">${u.avatar || '👤'}</div>
+                          <div>${escapeHtml(u.nickname)}</div>
+                        </div>
+                      `).join('')}
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+              <div class="messages-container" id="messages-container"><div class="empty-messages">Загрузка...</div></div>
+              <div id="input-area"></div>
+              <div id="voice-panel"></div>
+            </div>
+            
+            <div class="members-panel">
+              <div class="members-header">УЧАСТНИКИ — ${currentServer?.members?.length || 0}</div>
+              <div class="search-box">
+                <input type="text" id="member-search" class="search-input" placeholder="Поиск участников..." autocomplete="off">
+              </div>
+              <div class="members-list" id="members-list">
+                ${filteredMembers.map(member => {
+                  const status = userStatuses.get(member.userId) || { status: 'offline' };
+                  const statusText = { online: 'В сети', away: 'Отошёл', offline: 'Не в сети' }[status.status];
+                  return `
+                    <div class="member" data-user-id="${member.userId}" data-user-nick="${escapeHtml(member.nickname)}">
+                      <div class="member-avatar">${member.avatar ? (member.avatar.startsWith('data:') ? `<img src="${member.avatar}">` : member.avatar) : '👤'}</div>
+                      <div class="member-info">
+                        <div class="member-name">${escapeHtml(member.nickname)}</div>
+                        <div class="member-status">
+                          <span class="member-status-dot ${status.status}"></span>
+                          ${statusText}
+                        </div>
+                      </div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+              <div class="user-panel" id="user-panel">
+                <div class="user-avatar">${userProfile.avatar ? (userProfile.avatar.startsWith('data:') ? `<img src="${userProfile.avatar}">` : userProfile.avatar) : '⚛️'}</div>
+                <div class="user-info">
+                  <div class="user-nickname">${escapeHtml(currentUser?.nickname || '')}</div>
+                  <div class="user-custom-status">${userProfile.customStatus || 'Без статуса'}</div>
+                </div>
+              </div>
+            </div>
+          `;
+          
           attachEventHandlers();
-          if (currentChannel?.type === 'text' || currentDM) renderMessages();
-        } catch(e) { console.error('Render error:', e); }
-        finally { setTimeout(() => { isRendering = false; }, 100); }
+          
+          const messagesContainer = document.getElementById('messages-container');
+          if (messagesContainer && (currentChannel?.type === 'text' || currentDM)) {
+            renderMessages();
+          }
+          
+        } catch(e) {
+          console.error('Render error:', e);
+        } finally {
+          setTimeout(() => { isRendering = false; }, 100);
+        }
       }, 30);
     }
     
     function attachEventHandlers() {
-      // Все обработчики событий (как в предыдущей версии)
-      // Важно: НЕ вызывать renderUI() внутри обработчиков, которые вызываются слишком часто
+      const globalSearchInput = document.getElementById('global-search-input');
+      if (globalSearchInput) {
+        globalSearchInput.oninput = (e) => updateGlobalSearch(e.target.value);
+      }
+      document.querySelectorAll('.global-search-results .search-result-item').forEach(el => {
+        el.onclick = () => {
+          const userId = el.dataset.userId;
+          const user = allUsers.find(u => u.userId === userId);
+          if (user) startDM(user);
+          showGlobalSearch = false;
+          renderUI();
+        };
+      });
+      
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.global-search')) {
+          showGlobalSearch = false;
+          renderUI();
+        }
+      });
+      
+      document.querySelectorAll('.server-icon[data-server-id]').forEach(el => {
+        el.onclick = () => selectServer(el.dataset.serverId);
+      });
+      
+      document.querySelectorAll('.dm-icon[data-dm-user]').forEach(el => {
+        el.onclick = () => {
+          const userId = el.dataset.dmUser;
+          const dm = dms.find(d => d.userId === userId);
+          if (dm) startDM(dm);
+        };
+      });
+      
+      document.getElementById('close-dm-btn')?.addEventListener('click', closeDM);
+      
+      document.getElementById('create-server-btn')?.addEventListener('click', () => {
+        const name = prompt('Название сервера:');
+        if (name) socket.emit('create-server', { name });
+      });
+      
+      document.getElementById('join-invite-btn')?.addEventListener('click', joinByInvite);
+      
+      document.getElementById('create-invite-btn')?.addEventListener('click', () => {
+        if (currentServer) createInvite(currentServer.id);
+      });
+      
+      document.querySelectorAll('.channel').forEach(el => {
+        el.onclick = () => selectChannel(el.dataset.channelId);
+      });
+      
+      document.getElementById('add-text-channel')?.addEventListener('click', () => {
+        const name = prompt('Название канала:');
+        if (name && currentServer) socket.emit('create-channel', { serverId: currentServer.id, name, type: 'text' });
+      });
+      
+      document.getElementById('add-voice-channel')?.addEventListener('click', () => {
+        const name = prompt('Название канала:');
+        if (name && currentServer) socket.emit('create-channel', { serverId: currentServer.id, name, type: 'voice' });
+      });
+      
+      const memberSearch = document.getElementById('member-search');
+      if (memberSearch) {
+        memberSearch.value = memberSearchQuery;
+        memberSearch.oninput = (e) => { memberSearchQuery = e.target.value; renderUI(); };
+      }
+      
+      document.querySelectorAll('.member').forEach(el => {
+        el.onclick = () => {
+          const userId = el.dataset.userId;
+          const nickname = el.dataset.userNick;
+          if (userId && userId !== currentUser?.userId) {
+            startDM({ userId, nickname });
+          }
+        };
+      });
+      
+      document.getElementById('user-panel')?.addEventListener('click', () => {
+        // Показываем профиль (можно добавить позже)
+        alert('Редактирование профиля в разработке');
+      });
+      
+      const inputArea = document.getElementById('input-area');
+      const voicePanel = document.getElementById('voice-panel');
+      
+      if ((currentChannel?.type === 'text' || currentDM) && currentChannel?.type !== 'voice') {
+        inputArea.innerHTML = `<div class="message-input-area"><input type="text" id="message-input" class="message-input" placeholder="Введите сообщение..."><button id="send-btn" class="send-btn">📤</button></div>`;
+        voicePanel.innerHTML = '';
+        const msgInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        if (msgInput) {
+          msgInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              const text = msgInput.value.trim();
+              if (text && socket) {
+                if (currentDM) {
+                  socket.emit('send-dm', { targetUserId: currentDM.userId, text });
+                } else if (currentChannel) {
+                  socket.emit('send-message', { channelId: currentChannel.id, text });
+                }
+                msgInput.value = '';
+              }
+            }
+          };
+          msgInput.focus();
+        }
+        if (sendBtn) sendBtn.onclick = () => {
+          const text = msgInput?.value.trim();
+          if (text && socket) {
+            if (currentDM) {
+              socket.emit('send-dm', { targetUserId: currentDM.userId, text });
+            } else if (currentChannel) {
+              socket.emit('send-message', { channelId: currentChannel.id, text });
+            }
+            if (msgInput) msgInput.value = '';
+          }
+        };
+      } else if (currentChannel?.type === 'voice') {
+        inputArea.innerHTML = '';
+        voicePanel.innerHTML = `<div class="voice-panel"><div class="voice-users" id="voice-users">👥 0 в голосе</div><button id="voice-connect-btn" class="voice-btn">🎤 Подключиться</button></div>`;
+        const connectBtn = document.getElementById('voice-connect-btn');
+        if (connectBtn) {
+          connectBtn.onclick = () => {
+            if (isInVoice) {
+              leaveVoiceChannel();
+            } else {
+              joinVoiceChannel();
+            }
+          };
+        }
+      }
     }
-    
+
     function selectServer(id) { 
       currentServer = servers.find(s => s.id === id); 
       currentDM = null;
@@ -522,11 +726,27 @@
     
     function renderMessages() {
       const container = document.getElementById('messages-container');
+      if (!container) return;
+      
       const chatId = currentDM ? `dm_${currentDM.userId}` : currentChannel?.id;
       const msgs = messagesCache[chatId] || [];
-      if (!msgs.length) container.innerHTML = '<div class="empty-messages">Нет сообщений</div>';
-      else container.innerHTML = msgs.map(m => `<div class="message"><div class="message-avatar">${m.avatar ? (m.avatar.startsWith('data:') ? `<img src="${m.avatar}">` : m.avatar) : '👤'}</div><div class="message-content"><div class="message-header"><span class="message-nickname">${escapeHtml(m.nickname)}</span><span class="message-time">${new Date(m.timestamp).toLocaleTimeString()}</span></div><div class="message-text">${escapeHtml(m.text)}</div></div></div>`).join('');
-      container.scrollTop = container.scrollHeight;
+      if (!msgs.length) {
+        container.innerHTML = '<div class="empty-messages">Нет сообщений</div>';
+      } else {
+        container.innerHTML = msgs.map(m => `
+          <div class="message">
+            <div class="message-avatar">${m.avatar ? (m.avatar.startsWith('data:') ? `<img src="${m.avatar}">` : m.avatar) : '👤'}</div>
+            <div class="message-content">
+              <div class="message-header">
+                <span class="message-nickname">${escapeHtml(m.nickname)}</span>
+                <span class="message-time">${new Date(m.timestamp).toLocaleTimeString()}</span>
+              </div>
+              <div class="message-text">${escapeHtml(m.text)}</div>
+            </div>
+          </div>
+        `).join('');
+        container.scrollTop = container.scrollHeight;
+      }
     }
     
     function appendMessage(m, chatId) {
@@ -536,7 +756,16 @@
       if (currentChatId !== chatId) return;
       const div = document.createElement('div');
       div.className = 'message';
-      div.innerHTML = `<div class="message-avatar">${m.avatar ? (m.avatar.startsWith('data:') ? `<img src="${m.avatar}">` : m.avatar) : '👤'}</div><div class="message-content"><div class="message-header"><span class="message-nickname">${escapeHtml(m.nickname)}</span><span class="message-time">${new Date(m.timestamp).toLocaleTimeString()}</span></div><div class="message-text">${escapeHtml(m.text)}</div></div>`;
+      div.innerHTML = `
+        <div class="message-avatar">${m.avatar ? (m.avatar.startsWith('data:') ? `<img src="${m.avatar}">` : m.avatar) : '👤'}</div>
+        <div class="message-content">
+          <div class="message-header">
+            <span class="message-nickname">${escapeHtml(m.nickname)}</span>
+            <span class="message-time">${new Date(m.timestamp).toLocaleTimeString()}</span>
+          </div>
+          <div class="message-text">${escapeHtml(m.text)}</div>
+        </div>
+      `;
       container.appendChild(div);
       container.scrollTop = container.scrollHeight;
       const empty = container.querySelector('.empty-messages');
@@ -551,9 +780,9 @@
       socket.on('server-created', (s) => { servers.push({ ...s, myRole: 'owner', myPermissions: ['admin', 'manage_channels', 'manage_roles', 'create_invite'] }); renderUI(); });
       socket.on('server-channels', (ch) => { if (currentServer) { currentServer.channels = ch; if (!currentChannel && ch.length) selectChannel(ch[0].id); renderUI(); } });
       socket.on('channel-created', (ch) => { if (currentServer && ch.serverId === currentServer.id && !currentServer.channels?.some(c => c.id === ch.id)) { currentServer.channels.push(ch); renderUI(); } });
-      socket.on('channel-history', ({ channelId, messages }) => { messagesCache[channelId] = messages; if (currentChannel?.id === channelId) renderMessages(); });
+      socket.on('channel-history', ({ channelId, messages }) => { messagesCache[channelId] = messages; if (currentChannel?.id === channelId && document.getElementById('messages-container')) renderMessages(); });
       socket.on('new-message', (m) => { if (!messagesCache[m.channelId]) messagesCache[m.channelId] = []; messagesCache[m.channelId].push(m); if (currentChannel?.id === m.channelId) appendMessage({ ...m, avatar: userProfile.avatar }, m.channelId); });
-      socket.on('dm-history', ({ withUserId, messages }) => { const chatId = `dm_${withUserId}`; messagesCache[chatId] = messages; if (currentDM && currentDM.userId === withUserId) renderMessages(); });
+      socket.on('dm-history', ({ withUserId, messages }) => { const chatId = `dm_${withUserId}`; messagesCache[chatId] = messages; if (currentDM && currentDM.userId === withUserId && document.getElementById('messages-container')) renderMessages(); });
       socket.on('new-dm', (m) => { const chatId = `dm_${m.fromUserId}`; if (!messagesCache[chatId]) messagesCache[chatId] = []; messagesCache[chatId].push(m); if (currentDM && currentDM.userId === m.fromUserId) appendMessage({ ...m, nickname: m.fromNickname, avatar: m.avatar }, chatId); else { showNotification(`📩 ${m.fromNickname}`, m.text.substring(0, 50)); if (!dms.find(d => d.userId === m.fromUserId)) { dms.push({ userId: m.fromUserId, nickname: m.fromNickname, avatar: m.avatar || '👤' }); renderUI(); } } });
       socket.on('server-members', ({ serverId, members }) => { if (currentServer && currentServer.id === serverId) { currentServer.members = members; renderUI(); } });
       socket.on('all-users', (users) => { allUsers = users; });
