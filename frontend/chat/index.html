@@ -477,16 +477,72 @@
     }
     
     async function createPeerConnection(targetId) {
-      const configuration = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }], iceCandidatePoolSize: 10 };
-      const pc = new RTCPeerConnection(configuration);
+      let pc = peerConnections.get(targetId);
+      if (pc) {
+        if (pc.connectionState === 'connected' || pc.connectionState === 'connecting') {
+          console.log('⚠️ Соединение уже существует с:', targetId);
+          return pc;
+        }
+        console.log('⚠️ Закрываем старое соединение с:', targetId);
+        pc.close();
+        peerConnections.delete(targetId);
+      }
+      
+      const configuration = {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ],
+        iceCandidatePoolSize: 10
+      };
+      
+      pc = new RTCPeerConnection(configuration);
       peerConnections.set(targetId, pc);
-      if (voiceStream) voiceStream.getTracks().forEach(track => pc.addTrack(track, voiceStream));
-      pc.ontrack = (event) => { const audio = new Audio(); audio.srcObject = event.streams[0]; audio.autoplay = true; };
-      pc.onicecandidate = (event) => { if (event.candidate) socket.emit('voice-ice-candidate', { targetId, candidate: event.candidate }); };
-      pc.oniceconnectionstatechange = () => { if (pc.iceConnectionState === 'connected') console.log('✅ P2P соединение установлено!'); };
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      socket.emit('voice-offer', { targetId, offer });
+      
+      if (voiceStream) {
+        voiceStream.getTracks().forEach(track => {
+          pc.addTrack(track, voiceStream);
+        });
+      }
+      
+      pc.ontrack = (event) => {
+        console.log('🎵 Получен аудио поток от:', targetId);
+        const audio = new Audio();
+        audio.srcObject = event.streams[0];
+        audio.autoplay = true;
+        audio.volume = 0.5;
+      };
+      
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit('voice-ice-candidate', {
+            targetId: targetId,
+            candidate: event.candidate
+          });
+        }
+      };
+      
+      pc.oniceconnectionstatechange = () => {
+        console.log(`ICE состояние с ${targetId}: ${pc.iceConnectionState}`);
+        if (pc.iceConnectionState === 'connected') {
+          console.log('✅ P2P соединение установлено!');
+        }
+      };
+      
+      pc.onconnectionstatechange = () => {
+        console.log(`Соединение с ${targetId}: ${pc.connectionState}`);
+      };
+      
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit('voice-offer', { targetId, offer });
+        console.log('📤 Offer отправлен для:', targetId);
+      } catch (err) {
+        console.error('Ошибка при создании offer:', err);
+      }
+      
+      return pc;
     }
     
     function updateVoiceUsers() {
@@ -919,11 +975,123 @@
       socket.on('server-members', ({ serverId, members }) => { if (currentServer && currentServer.id === serverId) { currentServer.members = members; renderUI(); } });
       socket.on('all-users', (users) => { allUsers = users; });
       socket.on('user-status-update', ({ userId, status, lastActivity }) => { userStatuses.set(userId, { status, lastActivity }); if (currentServer && currentServer.members?.some(m => m.userId === userId)) { const memberDiv = document.querySelector(`.member[data-user-id="${userId}"] .member-status-dot`); if (memberDiv) { memberDiv.className = `member-status-dot ${status}`; const statusSpan = memberDiv.parentElement?.querySelector('.member-status span:last-child'); if (statusSpan) statusSpan.textContent = { online: 'В сети', away: 'Отошёл', offline: 'Не в сети' }[status]; } } });
-      socket.on('user-joined-voice', ({ socketId }) => { if (isInVoice && socketId !== socket.id) createPeerConnection(socketId); updateVoiceUsers(); });
-      socket.on('user-left-voice', ({ socketId }) => { const pc = peerConnections.get(socketId); if (pc) { pc.close(); peerConnections.delete(socketId); } updateVoiceUsers(); });
-      socket.on('voice-offer', async ({ fromId, offer }) => { if (!isInVoice || fromId === socket.id) return; const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] }); peerConnections.set(fromId, pc); if (voiceStream) voiceStream.getTracks().forEach(track => pc.addTrack(track, voiceStream)); pc.ontrack = (event) => { const audio = new Audio(); audio.srcObject = event.streams[0]; audio.autoplay = true; }; pc.onicecandidate = (event) => { if (event.candidate) socket.emit('voice-ice-candidate', { targetId: fromId, candidate: event.candidate }); }; await pc.setRemoteDescription(new RTCSessionDescription(offer)); const answer = await pc.createAnswer(); await pc.setLocalDescription(answer); socket.emit('voice-answer', { targetId: fromId, answer }); });
-      socket.on('voice-answer', async ({ fromId, answer }) => { const pc = peerConnections.get(fromId); if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer)); });
-      socket.on('voice-ice-candidate', async ({ fromId, candidate }) => { const pc = peerConnections.get(fromId); if (pc) await pc.addIceCandidate(new RTCIceCandidate(candidate)); });
+      socket.on('user-joined-voice', ({ socketId, nickname }) => { 
+        console.log(`👤 ${nickname} зашёл в голос`);
+        if (isInVoice && socketId !== socket.id) createPeerConnection(socketId); 
+        updateVoiceUsers(); 
+      });
+      socket.on('user-left-voice', ({ socketId, nickname }) => { 
+        console.log(`👋 ${nickname} вышел из голоса`);
+        const pc = peerConnections.get(socketId); 
+        if (pc) { 
+          pc.close(); 
+          peerConnections.delete(socketId); 
+        } 
+        updateVoiceUsers(); 
+      });
+      socket.on('voice-offer', async ({ fromId, offer }) => { 
+        if (!isInVoice || fromId === socket.id) return;
+        console.log('📞 Получен offer от:', fromId);
+        
+        let pc = peerConnections.get(fromId);
+        if (pc && pc.signalingState !== 'stable') {
+          console.log('⚠️ Закрываем старое соединение, состояние:', pc.signalingState);
+          pc.close();
+          peerConnections.delete(fromId);
+          pc = null;
+        }
+        
+        const configuration = {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun1.l.google.com:19302' }
+          ]
+        };
+        
+        pc = new RTCPeerConnection(configuration);
+        peerConnections.set(fromId, pc);
+        
+        if (voiceStream) {
+          voiceStream.getTracks().forEach(track => {
+            pc.addTrack(track, voiceStream);
+          });
+        }
+        
+        pc.ontrack = (event) => {
+          console.log('🎵 Получен аудио поток от:', fromId);
+          const audio = new Audio();
+          audio.srcObject = event.streams[0];
+          audio.autoplay = true;
+          audio.volume = 0.5;
+        };
+        
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            socket.emit('voice-ice-candidate', {
+              targetId: fromId,
+              candidate: event.candidate
+            });
+          }
+        };
+        
+        pc.oniceconnectionstatechange = () => {
+          console.log(`ICE состояние с ${fromId}: ${pc.iceConnectionState}`);
+        };
+        
+        pc.onconnectionstatechange = () => {
+          console.log(`Соединение с ${fromId}: ${pc.connectionState}`);
+        };
+        
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          socket.emit('voice-answer', { targetId: fromId, answer });
+        } catch (err) {
+          console.error('Ошибка в voice-offer:', err);
+          pc.close();
+          peerConnections.delete(fromId);
+        }
+      });
+      socket.on('voice-answer', async ({ fromId, answer }) => { 
+        const pc = peerConnections.get(fromId); 
+        if (!pc) {
+          console.log('⚠️ Нет PeerConnection для ответа от:', fromId);
+          return;
+        }
+        
+        if (pc.signalingState !== 'have-local-offer') {
+          console.log(`⚠️ Неправильное состояние для ответа: ${pc.signalingState}, ожидалось have-local-offer`);
+          if (pc.signalingState === 'stable') {
+            console.log('🔄 Состояние stable, пересоздаём offer');
+            try {
+              const offer = await pc.createOffer();
+              await pc.setLocalDescription(offer);
+              socket.emit('voice-offer', { targetId: fromId, offer });
+            } catch (err) {
+              console.error('Ошибка при пересоздании offer:', err);
+            }
+          }
+          return;
+        }
+        
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+          console.log('✅ Ответ установлен успешно');
+        } catch (err) {
+          console.error('Ошибка в voice-answer:', err);
+        }
+      });
+      socket.on('voice-ice-candidate', async ({ fromId, candidate }) => { 
+        const pc = peerConnections.get(fromId); 
+        if (pc && pc.remoteDescription) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (err) {
+            console.error('Ошибка в voice-ice-candidate:', err);
+          }
+        }
+      });
       socket.on('voice-users', () => updateVoiceUsers());
     }
 
