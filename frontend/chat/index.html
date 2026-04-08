@@ -388,7 +388,8 @@
       if (!query || query.length < 2) {
         globalSearchResults = [];
         showGlobalSearch = false;
-        renderUI();
+        const resultsDiv = document.querySelector('.global-search-results');
+        if (resultsDiv) resultsDiv.remove();
         return;
       }
       globalSearchResults = allUsers.filter(u => 
@@ -396,7 +397,36 @@
         u.nickname.toLowerCase().includes(query.toLowerCase())
       );
       showGlobalSearch = true;
-      renderUI();
+      
+      const chatHeader = document.querySelector('.chat-header');
+      if (chatHeader) {
+        const existingResults = chatHeader.querySelector('.global-search-results');
+        if (existingResults) existingResults.remove();
+        
+        if (globalSearchResults.length > 0) {
+          const resultsDiv = document.createElement('div');
+          resultsDiv.className = 'global-search-results';
+          resultsDiv.innerHTML = globalSearchResults.map(u => `
+            <div class="search-result-item" data-user-id="${u.userId}" data-user-nick="${escapeHtml(u.nickname)}">
+              <div class="member-avatar" style="width:32px;height:32px;">${u.avatar || '👤'}</div>
+              <div>${escapeHtml(u.nickname)}</div>
+            </div>
+          `).join('');
+          chatHeader.appendChild(resultsDiv);
+          
+          resultsDiv.querySelectorAll('.search-result-item').forEach(el => {
+            el.onclick = () => {
+              const userId = el.dataset.userId;
+              const user = allUsers.find(u => u.userId === userId);
+              if (user) startDM(user);
+              showGlobalSearch = false;
+              resultsDiv.remove();
+              const searchInput = document.getElementById('global-search-input');
+              if (searchInput) searchInput.value = '';
+            };
+          });
+        }
+      }
     }
     
     function startDM(user) {
@@ -552,16 +582,6 @@
                 <h2>${currentServer ? (currentChannel ? '#' + currentChannel.name : currentServer.name) : (currentDM ? `📩 ${currentDM.nickname}` : 'AtomCord')}</h2>
                 <div class="global-search">
                   <input type="text" id="global-search-input" class="global-search-input" placeholder="🔍 Поиск пользователей..." autocomplete="off">
-                  ${showGlobalSearch && globalSearchResults.length > 0 ? `
-                    <div class="global-search-results">
-                      ${globalSearchResults.map(u => `
-                        <div class="search-result-item" data-user-id="${u.userId}" data-user-nick="${escapeHtml(u.nickname)}">
-                          <div class="member-avatar" style="width:32px;height:32px;">${u.avatar || '👤'}</div>
-                          <div>${escapeHtml(u.nickname)}</div>
-                        </div>
-                      `).join('')}
-                    </div>
-                  ` : ''}
                 </div>
               </div>
               <div class="messages-container" id="messages-container"><div class="empty-messages">Загрузка...</div></div>
@@ -620,87 +640,137 @@
     function attachEventHandlers() {
       const globalSearchInput = document.getElementById('global-search-input');
       if (globalSearchInput) {
-        globalSearchInput.oninput = (e) => updateGlobalSearch(e.target.value);
+        const newSearchInput = globalSearchInput.cloneNode(true);
+        globalSearchInput.parentNode.replaceChild(newSearchInput, globalSearchInput);
+        const finalSearchInput = document.getElementById('global-search-input');
+        if (finalSearchInput) {
+          finalSearchInput.oninput = (e) => updateGlobalSearch(e.target.value);
+        }
       }
-      document.querySelectorAll('.global-search-results .search-result-item').forEach(el => {
-        el.onclick = () => {
-          const userId = el.dataset.userId;
-          const user = allUsers.find(u => u.userId === userId);
-          if (user) startDM(user);
-          showGlobalSearch = false;
-          renderUI();
-        };
-      });
       
       document.addEventListener('click', (e) => {
         if (!e.target.closest('.global-search')) {
-          showGlobalSearch = false;
-          renderUI();
+          if (showGlobalSearch) {
+            showGlobalSearch = false;
+            const resultsDiv = document.querySelector('.global-search-results');
+            if (resultsDiv) resultsDiv.remove();
+          }
         }
       });
       
       document.querySelectorAll('.server-icon[data-server-id]').forEach(el => {
-        el.onclick = () => selectServer(el.dataset.serverId);
+        const newEl = el.cloneNode(true);
+        el.parentNode.replaceChild(newEl, el);
+        newEl.onclick = () => selectServer(newEl.dataset.serverId);
       });
       
       document.querySelectorAll('.dm-icon[data-dm-user]').forEach(el => {
-        el.onclick = () => {
-          const userId = el.dataset.dmUser;
+        const newEl = el.cloneNode(true);
+        el.parentNode.replaceChild(newEl, el);
+        newEl.onclick = () => {
+          const userId = newEl.dataset.dmUser;
           const dm = dms.find(d => d.userId === userId);
           if (dm) startDM(dm);
         };
       });
       
-      document.getElementById('close-dm-btn')?.addEventListener('click', closeDM);
+      const closeDmBtn = document.getElementById('close-dm-btn');
+      if (closeDmBtn) {
+        const newBtn = closeDmBtn.cloneNode(true);
+        closeDmBtn.parentNode.replaceChild(newBtn, closeDmBtn);
+        newBtn.onclick = closeDM;
+      }
       
-      document.getElementById('create-server-btn')?.addEventListener('click', () => {
-        const name = prompt('Название сервера:');
-        if (name && name.trim()) {
-          socket.emit('create-server', { name: name.trim() });
-        }
-      });
+      const createServerBtn = document.getElementById('create-server-btn');
+      if (createServerBtn) {
+        const newBtn = createServerBtn.cloneNode(true);
+        createServerBtn.parentNode.replaceChild(newBtn, createServerBtn);
+        newBtn.onclick = () => {
+          const name = prompt('Название сервера:');
+          if (name && name.trim()) {
+            socket.emit('create-server', { name: name.trim() });
+          }
+        };
+      }
       
-      document.getElementById('join-invite-btn')?.addEventListener('click', joinByInvite);
+      const joinInviteBtn = document.getElementById('join-invite-btn');
+      if (joinInviteBtn) {
+        const newBtn = joinInviteBtn.cloneNode(true);
+        joinInviteBtn.parentNode.replaceChild(newBtn, joinInviteBtn);
+        newBtn.onclick = joinByInvite;
+      }
       
-      document.getElementById('create-invite-btn')?.addEventListener('click', () => {
-        if (currentServer) createInvite(currentServer.id);
-      });
+      const createInviteBtn = document.getElementById('create-invite-btn');
+      if (createInviteBtn) {
+        const newBtn = createInviteBtn.cloneNode(true);
+        createInviteBtn.parentNode.replaceChild(newBtn, createInviteBtn);
+        newBtn.onclick = () => {
+          if (currentServer) createInvite(currentServer.id);
+        };
+      }
       
       document.querySelectorAll('.channel').forEach(el => {
-        el.onclick = () => selectChannel(el.dataset.channelId);
+        const newEl = el.cloneNode(true);
+        el.parentNode.replaceChild(newEl, el);
+        newEl.onclick = () => selectChannel(newEl.dataset.channelId);
       });
       
-      document.getElementById('add-text-channel')?.addEventListener('click', () => {
-        const name = prompt('Название канала:');
-        if (name && name.trim() && currentServer) {
-          socket.emit('create-channel', { serverId: currentServer.id, name: name.trim(), type: 'text' });
-        }
-      });
+      const addTextChannelBtn = document.getElementById('add-text-channel');
+      if (addTextChannelBtn) {
+        const newBtn = addTextChannelBtn.cloneNode(true);
+        addTextChannelBtn.parentNode.replaceChild(newBtn, addTextChannelBtn);
+        newBtn.onclick = () => {
+          const name = prompt('Название канала:');
+          if (name && name.trim() && currentServer) {
+            socket.emit('create-channel', { serverId: currentServer.id, name: name.trim(), type: 'text' });
+          }
+        };
+      }
       
-      document.getElementById('add-voice-channel')?.addEventListener('click', () => {
-        const name = prompt('Название канала:');
-        if (name && name.trim() && currentServer) {
-          socket.emit('create-channel', { serverId: currentServer.id, name: name.trim(), type: 'voice' });
-        }
-      });
+      const addVoiceChannelBtn = document.getElementById('add-voice-channel');
+      if (addVoiceChannelBtn) {
+        const newBtn = addVoiceChannelBtn.cloneNode(true);
+        addVoiceChannelBtn.parentNode.replaceChild(newBtn, addVoiceChannelBtn);
+        newBtn.onclick = () => {
+          const name = prompt('Название канала:');
+          if (name && name.trim() && currentServer) {
+            socket.emit('create-channel', { serverId: currentServer.id, name: name.trim(), type: 'voice' });
+          }
+        };
+      }
       
       const memberSearch = document.getElementById('member-search');
       if (memberSearch) {
-        memberSearch.value = memberSearchQuery;
-        memberSearch.oninput = (e) => { memberSearchQuery = e.target.value; renderUI(); };
+        const newSearch = memberSearch.cloneNode(true);
+        memberSearch.parentNode.replaceChild(newSearch, memberSearch);
+        const finalMemberSearch = document.getElementById('member-search');
+        if (finalMemberSearch) {
+          finalMemberSearch.value = memberSearchQuery;
+          finalMemberSearch.oninput = (e) => { 
+            memberSearchQuery = e.target.value; 
+            renderUI(); 
+          };
+        }
       }
       
       document.querySelectorAll('.member').forEach(el => {
-        el.onclick = () => {
-          const userId = el.dataset.userId;
-          const nickname = el.dataset.userNick;
+        const newEl = el.cloneNode(true);
+        el.parentNode.replaceChild(newEl, el);
+        newEl.onclick = () => {
+          const userId = newEl.dataset.userId;
+          const nickname = newEl.dataset.userNick;
           if (userId && userId !== currentUser?.userId) {
             startDM({ userId, nickname });
           }
         };
       });
       
-      document.getElementById('user-panel')?.addEventListener('click', showProfileEditor);
+      const userPanel = document.getElementById('user-panel');
+      if (userPanel) {
+        const newPanel = userPanel.cloneNode(true);
+        userPanel.parentNode.replaceChild(newPanel, userPanel);
+        newPanel.onclick = showProfileEditor;
+      }
       
       const inputArea = document.getElementById('input-area');
       const voicePanel = document.getElementById('voice-panel');
@@ -711,46 +781,34 @@
         const msgInput = document.getElementById('message-input');
         const sendBtn = document.getElementById('send-btn');
         if (msgInput) {
-          // Убираем старый обработчик, чтобы не дублировать
-          const newMsgInput = msgInput.cloneNode(true);
-          msgInput.parentNode.replaceChild(newMsgInput, msgInput);
-          const finalInput = document.getElementById('message-input');
-          if (finalInput) {
-            finalInput.onkeypress = (e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                const text = finalInput.value.trim();
-                if (text && socket) {
-                  if (currentDM) {
-                    socket.emit('send-dm', { targetUserId: currentDM.userId, text });
-                  } else if (currentChannel) {
-                    socket.emit('send-message', { channelId: currentChannel.id, text });
-                  }
-                  finalInput.value = '';
-                }
-              }
-            };
-            finalInput.focus();
-          }
-        }
-        if (sendBtn) {
-          const newSendBtn = sendBtn.cloneNode(true);
-          sendBtn.parentNode.replaceChild(newSendBtn, sendBtn);
-          const finalSendBtn = document.getElementById('send-btn');
-          if (finalSendBtn) {
-            finalSendBtn.onclick = () => {
-              const input = document.getElementById('message-input');
-              const text = input?.value.trim();
+          msgInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              const text = msgInput.value.trim();
               if (text && socket) {
                 if (currentDM) {
                   socket.emit('send-dm', { targetUserId: currentDM.userId, text });
                 } else if (currentChannel) {
                   socket.emit('send-message', { channelId: currentChannel.id, text });
                 }
-                if (input) input.value = '';
+                msgInput.value = '';
               }
-            };
-          }
+            }
+          };
+          msgInput.focus();
+        }
+        if (sendBtn) {
+          sendBtn.onclick = () => {
+            const text = msgInput?.value.trim();
+            if (text && socket) {
+              if (currentDM) {
+                socket.emit('send-dm', { targetUserId: currentDM.userId, text });
+              } else if (currentChannel) {
+                socket.emit('send-message', { channelId: currentChannel.id, text });
+              }
+              if (msgInput) msgInput.value = '';
+            }
+          };
         }
       } else if (currentChannel?.type === 'voice') {
         inputArea.innerHTML = '';
