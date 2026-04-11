@@ -227,24 +227,32 @@
     let lastActivityTime = 0;
     let initiatingPeers = new Set();
     
-    // КОНФИГУРАЦИЯ ICE ДЛЯ WEBRTC (ИСПРАВЛЕНА)
-    // СЮДА МОЖНО ДОБАВИТЬ TURN СЕРВЕР ПОЗЖЕ
+    // ========== WEBRTC КОНФИГУРАЦИЯ С TURN ОТ METERED ==========
     const RTC_CONFIG = {
       iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:stun3.l.google.com:19302' },
-        { urls: 'stun:stun4.l.google.com:19302' },
-        { urls: 'stun:stun.ekiga.net' },
-        { urls: 'stun:stun.ideasip.com' },
-        { urls: 'stun:stun.schlund.de' }
-        // ПРИМЕР ДОБАВЛЕНИЯ TURN СЕРВЕРА (РАСКОММЕНТИРУЙ И ЗАМЕНИ):
-        // { 
-        //   urls: 'turn:openrelay.metered.ca:80', 
-        //   username: 'openrelayproject', 
-        //   credential: 'openrelayproject' 
-        // }
+        {
+          urls: "stun:stun.relay.metered.ca:80",
+        },
+        {
+          urls: "turn:global.relay.metered.ca:80",
+          username: "71d3481367ebf97aa9b9249b",
+          credential: "pOpjlnVAhr6vTtnd",
+        },
+        {
+          urls: "turn:global.relay.metered.ca:80?transport=tcp",
+          username: "71d3481367ebf97aa9b9249b",
+          credential: "pOpjlnVAhr6vTtnd",
+        },
+        {
+          urls: "turn:global.relay.metered.ca:443",
+          username: "71d3481367ebf97aa9b9249b",
+          credential: "pOpjlnVAhr6vTtnd",
+        },
+        {
+          urls: "turns:global.relay.metered.ca:443?transport=tcp",
+          username: "71d3481367ebf97aa9b9249b",
+          credential: "pOpjlnVAhr6vTtnd",
+        },
       ],
       iceCandidatePoolSize: 10,
       iceTransportPolicy: 'all'
@@ -470,7 +478,7 @@
       renderUI();
     }
     
-    // ========== ИСПРАВЛЕННАЯ ГОЛОСОВАЯ ЧАСТЬ ==========
+    // ========== ГОЛОСОВАЯ ЧАСТЬ С TURN ==========
     async function joinVoiceChannel() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -531,7 +539,7 @@
       if (initiatingPeers.has(targetId)) return;
       initiatingPeers.add(targetId);
       
-      console.log(`🔧 Создаю PeerConnection для ${targetId} с конфигурацией:`, RTC_CONFIG);
+      console.log(`🔧 Создаю PeerConnection для ${targetId} с TURN серверами`);
       
       const pc = new RTCPeerConnection(RTC_CONFIG);
       peerConnections.set(targetId, pc);
@@ -551,7 +559,7 @@
       
       pc.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log(`❄️ ICE кандидат (${targetId}, тип: ${event.candidate.type}):`, event.candidate.candidate);
+          console.log(`❄️ ICE кандидат (${targetId}, тип: ${event.candidate.type})`);
           socket.emit('voice-ice-candidate', { targetId, candidate: event.candidate });
         } else {
           console.log(`✅ Сбор ICE кандидатов для ${targetId} завершён`);
@@ -565,7 +573,7 @@
           showNotification('Голос', 'Соединение установлено');
         }
         if (pc.iceConnectionState === 'failed') {
-          console.error(`❌ ICE соединение с ${targetId} ПРОВАЛИЛОСЬ! Нужен TURN сервер.`);
+          console.error(`❌ ICE соединение с ${targetId} ПРОВАЛИЛОСЬ!`);
           showNotification('Голос', 'Не удалось установить соединение');
         }
       };
