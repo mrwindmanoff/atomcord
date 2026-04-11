@@ -583,6 +583,20 @@
         const audio = new Audio();
         audio.srcObject = event.streams[0];
         audio.autoplay = true;
+        audio.volume = 1;
+        audio.muted = false;
+  
+        // Принудительное воспроизведение
+        audio.play().catch(e => {
+          console.warn('Автовоспроизведение заблокировано, ждём клик');
+          // Разблокировка по клику
+         const unlock = () => {
+           audio.play();
+           document.removeEventListener('click', unlock);
+        };
+        document.addEventListener('click', unlock);
+     });
+  };
       };
       
       pc.onicecandidate = (event) => {
