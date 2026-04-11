@@ -122,6 +122,7 @@
     .voice-panel { background: #1a1a2a; border-top: 1px solid #2a2a3a; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
     .voice-btn { padding: 8px 16px; background: #3ba55d; border: none; border-radius: 8px; color: white; cursor: pointer; }
     .voice-btn.leave { background: #ed4245; }
+    .voice-users { font-size: 12px; color: #888; }
     
     .modal {
       position: fixed;
@@ -226,17 +227,27 @@
     let lastActivityTime = 0;
     let initiatingPeers = new Set();
     
-    // WebRTC конфигурация с TURN серверами (для обхода NAT)
+    // КОНФИГУРАЦИЯ ICE ДЛЯ WEBRTC (ИСПРАВЛЕНА)
+    // СЮДА МОЖНО ДОБАВИТЬ TURN СЕРВЕР ПОЗЖЕ
     const RTC_CONFIG = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        { urls: 'stun:stun.ekiga.net' },
+        { urls: 'stun:stun.ideasip.com' },
+        { urls: 'stun:stun.schlund.de' }
+        // ПРИМЕР ДОБАВЛЕНИЯ TURN СЕРВЕРА (РАСКОММЕНТИРУЙ И ЗАМЕНИ):
+        // { 
+        //   urls: 'turn:openrelay.metered.ca:80', 
+        //   username: 'openrelayproject', 
+        //   credential: 'openrelayproject' 
+        // }
       ],
-      iceCandidatePoolSize: 10
+      iceCandidatePoolSize: 10,
+      iceTransportPolicy: 'all'
     };
     
     const defaultAvatars = ['⚛️', '😀', '😂', '😎', '🥳', '😍', '🔥', '💀', '👻', '🤖', '🐱', '🐶', '🦊', '🐼', '🍕', '🎮', '💪', '🎧', '📷', '✈️'];
@@ -459,6 +470,7 @@
       renderUI();
     }
     
+    // ========== ИСПРАВЛЕННАЯ ГОЛОСОВАЯ ЧАСТЬ ==========
     async function joinVoiceChannel() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -484,7 +496,10 @@
             });
           }
         });
-      } catch (err) { showNotification('Ошибка', 'Не удалось получить доступ к микрофону'); }
+      } catch (err) { 
+        console.error('Ошибка микрофона:', err);
+        showNotification('Ошибка', 'Не удалось получить доступ к микрофону'); 
+      }
     }
     
     function leaveVoiceChannel() {
@@ -516,6 +531,8 @@
       if (initiatingPeers.has(targetId)) return;
       initiatingPeers.add(targetId);
       
+      console.log(`🔧 Создаю PeerConnection для ${targetId} с конфигурацией:`, RTC_CONFIG);
+      
       const pc = new RTCPeerConnection(RTC_CONFIG);
       peerConnections.set(targetId, pc);
       
@@ -526,7 +543,7 @@
       }
       
       pc.ontrack = (event) => {
-        console.log('🎵 Получен аудио поток');
+        console.log(`🎵 Получен аудио поток от ${targetId}`);
         const audio = new Audio();
         audio.srcObject = event.streams[0];
         audio.autoplay = true;
@@ -534,14 +551,22 @@
       
       pc.onicecandidate = (event) => {
         if (event.candidate) {
+          console.log(`❄️ ICE кандидат (${targetId}, тип: ${event.candidate.type}):`, event.candidate.candidate);
           socket.emit('voice-ice-candidate', { targetId, candidate: event.candidate });
+        } else {
+          console.log(`✅ Сбор ICE кандидатов для ${targetId} завершён`);
         }
       };
       
       pc.oniceconnectionstatechange = () => {
-        console.log(`ICE состояние с ${targetId}: ${pc.iceConnectionState}`);
+        console.log(`🔄 ICE состояние с ${targetId}: ${pc.iceConnectionState}`);
         if (pc.iceConnectionState === 'connected') {
-          console.log('✅ P2P соединение установлено!');
+          console.log(`✅ УРА! P2P соединение с ${targetId} установлено!`);
+          showNotification('Голос', 'Соединение установлено');
+        }
+        if (pc.iceConnectionState === 'failed') {
+          console.error(`❌ ICE соединение с ${targetId} ПРОВАЛИЛОСЬ! Нужен TURN сервер.`);
+          showNotification('Голос', 'Не удалось установить соединение');
         }
       };
       
@@ -549,6 +574,7 @@
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
         socket.emit('voice-offer', { targetId, offer });
+        console.log(`📤 Offer отправлен для ${targetId}`);
       } catch (err) {
         console.error('Ошибка при создании offer:', err);
       } finally {
@@ -1006,6 +1032,8 @@
         if (!isInVoice || fromId === socket.id) return;
         if (peerConnections.has(fromId)) return;
         
+        console.log(`📞 Получен offer от ${fromId}`);
+        
         const pc = new RTCPeerConnection(RTC_CONFIG);
         peerConnections.set(fromId, pc);
         
@@ -1016,6 +1044,7 @@
         }
         
         pc.ontrack = (event) => {
+          console.log(`🎵 Получен аудио поток от ${fromId}`);
           const audio = new Audio();
           audio.srcObject = event.streams[0];
           audio.autoplay = true;
@@ -1023,6 +1052,7 @@
         
         pc.onicecandidate = (event) => {
           if (event.candidate) {
+            console.log(`❄️ ICE кандидат (${fromId}, тип: ${event.candidate.type})`);
             socket.emit('voice-ice-candidate', {
               targetId: fromId,
               candidate: event.candidate
@@ -1083,7 +1113,9 @@
           } 
         }); 
       });
-      socket.on('connect_error', () => alert('Сервер не отвечает'));
+      socket.on('connect_error', () => {
+        alert('Сервер не отвечает. Перезагрузите страницу.');
+      });
     }
   </script>
 </body>
