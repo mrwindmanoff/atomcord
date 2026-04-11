@@ -6,6 +6,7 @@
   <title>AtomCord — Чат</title>
   <link rel="stylesheet" href="/style.css">
   <style>
+    /* ... ВСЕ СТИЛИ ОСТАЮТСЯ ТАКИМИ ЖЕ, КАК В ТВОЕМ ТЕКУЩЕМ ФАЙЛЕ ... */
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: system-ui, sans-serif; background: #0f0f1a; color: #e0e0e0; overflow: hidden; }
     
@@ -205,6 +206,7 @@
 
   <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
   <script>
+    // ===================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ =====================
     let currentUser = null;
     let socket = null;
     let currentServer = null;
@@ -226,38 +228,51 @@
     let isRendering = false;
     let lastActivityTime = 0;
     let initiatingPeers = new Set();
+
+    // ===================== ДИНАМИЧЕСКАЯ КОНФИГУРАЦИЯ ICE =====================
+    // API ключ для получения TURN серверов
+    const METERED_API_KEY = '1078b2e94038d39f669a3cf39b30b0f0cec4';
+    const METERED_API_URL = `https://atomcord.metered.live/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`;
     
-    // ========== WEBRTC КОНФИГУРАЦИЯ С TURN ОТ METERED ==========
-    const RTC_CONFIG = {
-      iceServers: [
-        {
-          urls: "stun:stun.relay.metered.ca:80",
-        },
-        {
-          urls: "turn:global.relay.metered.ca:80",
-          username: "71d3481367ebf97aa9b9249b",
-          credential: "pOpjlnVAhr6vTtnd",
-        },
-        {
-          urls: "turn:global.relay.metered.ca:80?transport=tcp",
-          username: "71d3481367ebf97aa9b9249b",
-          credential: "pOpjlnVAhr6vTtnd",
-        },
-        {
-          urls: "turn:global.relay.metered.ca:443",
-          username: "71d3481367ebf97aa9b9249b",
-          credential: "pOpjlnVAhr6vTtnd",
-        },
-        {
-          urls: "turns:global.relay.metered.ca:443?transport=tcp",
-          username: "71d3481367ebf97aa9b9249b",
-          credential: "pOpjlnVAhr6vTtnd",
-        },
-      ],
-      iceCandidatePoolSize: 10,
-      iceTransportPolicy: 'all'
-    };
-    
+    // Функция для получения актуальных ICE серверов с Metered
+    async function getIceServers() {
+      try {
+        console.log('🔄 Запрашиваю TURN сервера с Metered...');
+        const response = await fetch(METERED_API_URL);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const iceServers = await response.json();
+        console.log('✅ Получены TURN сервера:', iceServers);
+        
+        // Добавляем Google STUN для надежности
+        iceServers.push({ urls: 'stun:stun.l.google.com:19302' });
+        iceServers.push({ urls: 'stun:stun1.l.google.com:19302' });
+        
+        return iceServers;
+      } catch (error) {
+        console.error('❌ Ошибка получения TURN серверов:', error);
+        // Фоллбек на стандартные STUN сервера, если API не работает
+        return [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' }
+        ];
+      }
+    }
+
+    // Глобальная переменная для конфигурации, которая будет заполнена
+    let RTC_CONFIG = { iceServers: [], iceCandidatePoolSize: 10, iceTransportPolicy: 'relay' }; // 'relay' принуждает использовать TURN
+
+    // Асинхронная инициализация конфигурации
+    (async function initRtcConfig() {
+      const iceServers = await getIceServers();
+      RTC_CONFIG = {
+        iceServers: iceServers,
+        iceCandidatePoolSize: 10,
+        iceTransportPolicy: 'relay' // Ключевая настройка! Принуждает использовать только relay (TURN) кандидаты
+      };
+      console.log('🚀 RTC_CONFIG инициализирована:', RTC_CONFIG);
+    })();
+
     const defaultAvatars = ['⚛️', '😀', '😂', '😎', '🥳', '😍', '🔥', '💀', '👻', '🤖', '🐱', '🐶', '🦊', '🐼', '🍕', '🎮', '💪', '🎧', '📷', '✈️'];
     
     let userProfile = {
@@ -478,13 +493,24 @@
       renderUI();
     }
     
-    // ========== ГОЛОСОВАЯ ЧАСТЬ С TURN ==========
+    // ===================== ГОЛОСОВАЯ ЧАСТЬ (ПЕРЕПИСАНА) =====================
     async function joinVoiceChannel() {
       try {
+        // Получаем актуальные ICE сервера перед подключением
+        const iceServers = await getIceServers();
+        const turnConfig = {
+          iceServers: iceServers,
+          iceTransportPolicy: 'relay', // ПРИНУДИТЕЛЬНО через TURN
+          iceCandidatePoolSize: 10
+        };
+        
+        console.log('🎤 Подключение к голосу с конфигурацией:', turnConfig);
+        
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         voiceStream = stream;
         peerConnections.clear();
         initiatingPeers.clear();
+        
         socket.emit('join-voice', { channelId: currentChannel.id }, (response) => {
           if (response && response.success) {
             isInVoice = true;
@@ -497,7 +523,7 @@
               if (users) {
                 users.forEach(user => {
                   if (user.socketId !== socket.id && !peerConnections.has(user.socketId)) {
-                    createPeerConnection(user.socketId);
+                    createPeerConnection(user.socketId, turnConfig);
                   }
                 });
               }
@@ -526,7 +552,7 @@
       if (voiceUsersDiv) voiceUsersDiv.textContent = '👥 0 в голосе';
     }
     
-    async function createPeerConnection(targetId) {
+    async function createPeerConnection(targetId, config = null) {
       if (peerConnections.has(targetId)) {
         const existing = peerConnections.get(targetId);
         if (existing.connectionState === 'connected' || existing.connectionState === 'connecting') {
@@ -539,9 +565,11 @@
       if (initiatingPeers.has(targetId)) return;
       initiatingPeers.add(targetId);
       
-      console.log(`🔧 Создаю PeerConnection для ${targetId} с TURN серверами`);
+      // Используем переданную конфигурацию или глобальную
+      const effectiveConfig = config || RTC_CONFIG;
+      console.log(`🔧 Создаю PeerConnection для ${targetId} с TURN серверами`, effectiveConfig);
       
-      const pc = new RTCPeerConnection(RTC_CONFIG);
+      const pc = new RTCPeerConnection(effectiveConfig);
       peerConnections.set(targetId, pc);
       
       if (voiceStream) {
@@ -1042,7 +1070,15 @@
         
         console.log(`📞 Получен offer от ${fromId}`);
         
-        const pc = new RTCPeerConnection(RTC_CONFIG);
+        // Для ответа тоже используем актуальную конфигурацию
+        const iceServers = await getIceServers();
+        const turnConfig = {
+          iceServers: iceServers,
+          iceTransportPolicy: 'relay',
+          iceCandidatePoolSize: 10
+        };
+        
+        const pc = new RTCPeerConnection(turnConfig);
         peerConnections.set(fromId, pc);
         
         if (voiceStream) {
