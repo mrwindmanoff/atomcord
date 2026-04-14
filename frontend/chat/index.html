@@ -213,9 +213,6 @@
     let servers = [];
     let dms = [];
     let messagesCache = {};
-    let voiceStream = null;
-    let peerConnections = new Map();
-    let isInVoice = false;
     let userStatuses = new Map();
     let allUsers = [];
     let globalSearchResults = [];
@@ -225,20 +222,174 @@
     let renderTimeout = null;
     let isRendering = false;
     let lastActivityTime = 0;
-    let initiatingPeers = new Set();
     
-    // API ключ для Metered TURN
-    const METERED_API_KEY = '1078b2e94038d39f669a3cf39b30b0f0cec4';
+    // ========== WEBSOCKET АУДИО (НЕ WebRTC) ==========
+    let audioWebSocket = null;
+    let audioContext = null;
+    let mediaStream = null;
+    let sourceNode = null;
+    let processorNode = null;
+    let isInVoice = false;
     
-    async function getIceServers() {
+    async function connectAudioWebSocket() {
+      if (audioWebSocket && audioWebSocket.readyState === WebSocket.OPEN) {
+        console.log('🎧 Аудио WebSocket уже подключен');
+        return;
+      }
+      
       try {
-        const response = await fetch(`https://atomcord.metered.live/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`);
-        const iceServers = await response.json();
-        iceServers.push({ urls: 'stun:stun.l.google.com:19302' });
-        return iceServers;
-      } catch (error) {
-        console.error('Ошибка получения TURN серверов:', error);
-        return [{ urls: 'stun:stun.l.google.com:19302' }];
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('✅ Микрофон получен');
+        
+        audioWebSocket = new WebSocket('wss://atomcord-backend.onrender.com/audio');
+        
+        audioWebSocket.onopen = () => {
+          console.log('🎧 Аудио WebSocket подключен');
+          audioWebSocket.send(JSON.stringify({
+            type: 'join',
+            roomId: currentChannel.id,
+            userId: currentUser.userId
+          }));
+          
+          setupAudioStream();
+        };
+        
+        audioWebSocket.onmessage = (event) => {
+          if (typeof event.data === 'object') {
+            playAudioData(event.data);
+          }
+        };
+        
+        audioWebSocket.onerror = (error) => {
+          console.error('❌ Аудио WebSocket ошибка:', error);
+        };
+        
+        audioWebSocket.onclose = () => {
+          console.log('🎧 Аудио WebSocket отключен');
+          if (mediaStream) {
+            mediaStream.getTracks().forEach(track => track.stop());
+          }
+          if (audioContext) {
+            audioContext.close();
+          }
+        };
+        
+      } catch (err) {
+        console.error('❌ Ошибка подключения аудио:', err);
+        showNotification('Ошибка', 'Не удалось получить доступ к микрофону');
+      }
+    }
+    
+    function setupAudioStream() {
+      if (!mediaStream) return;
+      
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      sourceNode = audioContext.createMediaStreamSource(mediaStream);
+      processorNode = audioContext.createScriptProcessor(4096, 1, 1);
+      
+      processorNode.onaudioprocess = (event) => {
+        if (audioWebSocket && audioWebSocket.readyState === WebSocket.OPEN) {
+          const inputData = event.inputBuffer.getChannelData(0);
+          audioWebSocket.send(inputData.buffer);
+        }
+      };
+      
+      sourceNode.connect(processorNode);
+      processorNode.connect(audioContext.destination);
+      
+      const unlockAudio = () => {
+        if (audioContext && audioContext.state === 'suspended') {
+          audioContext.resume();
+          console.log('🔊 Аудио контекст разблокирован');
+        }
+        document.removeEventListener('click', unlockAudio);
+      };
+      document.addEventListener('click', unlockAudio);
+      
+      console.log('🎤 Аудио стрим настроен');
+    }
+    
+    function playAudioData(arrayBuffer) {
+      if (!audioContext || audioContext.state !== 'running') return;
+      
+      try {
+        const float32Data = new Float32Array(arrayBuffer);
+        const audioBuffer = audioContext.createBuffer(1, float32Data.length, 48000);
+        audioBuffer.copyToChannel(float32Data, 0);
+        
+        const source = audioContext.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContext.destination);
+        source.start();
+      } catch (err) {
+        console.error('Ошибка воспроизведения аудио:', err);
+      }
+    }
+    
+    function disconnectAudioWebSocket() {
+      if (audioWebSocket && audioWebSocket.readyState === WebSocket.OPEN) {
+        audioWebSocket.send(JSON.stringify({
+          type: 'leave',
+          roomId: currentChannel?.id
+        }));
+        audioWebSocket.close();
+      }
+      
+      if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+      }
+      
+      if (processorNode) {
+        processorNode.disconnect();
+        processorNode = null;
+      }
+      
+      if (sourceNode) {
+        sourceNode.disconnect();
+        sourceNode = null;
+      }
+      
+      if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+      }
+      
+      console.log('🔇 Аудио отключено');
+    }
+    
+    async function joinVoiceChannel() {
+      try {
+        await connectAudioWebSocket();
+        isInVoice = true;
+        const connectBtn = document.getElementById('voice-connect-btn');
+        if (connectBtn) {
+          connectBtn.textContent = '🔴 Отключиться';
+          connectBtn.classList.add('leave');
+        }
+        showNotification('Голос', 'Подключено к голосовому каналу');
+      } catch (err) {
+        console.error('Ошибка подключения:', err);
+        showNotification('Ошибка', 'Не удалось подключиться к голосовому каналу');
+      }
+    }
+    
+    function leaveVoiceChannel() {
+      disconnectAudioWebSocket();
+      isInVoice = false;
+      const connectBtn = document.getElementById('voice-connect-btn');
+      if (connectBtn) {
+        connectBtn.textContent = '🎤 Подключиться';
+        connectBtn.classList.remove('leave');
+      }
+      showNotification('Голос', 'Отключено от голосового канала');
+    }
+    
+    function updateVoiceUsers() {
+      const voiceUsersDiv = document.getElementById('voice-users');
+      if (voiceUsersDiv) {
+        const count = audioWebSocket && audioWebSocket.readyState === WebSocket.OPEN ? 1 : 0;
+        voiceUsersDiv.textContent = `👥 ${count} в голосе`;
       }
     }
     
@@ -460,127 +611,6 @@
     function closeDM() {
       currentDM = null;
       renderUI();
-    }
-    
-    async function joinVoiceChannel() {
-      try {
-        const iceServers = await getIceServers();
-        const config = {
-          iceServers: iceServers,
-          iceTransportPolicy: 'relay',
-          iceCandidatePoolSize: 10
-        };
-        
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        voiceStream = stream;
-        peerConnections.clear();
-        initiatingPeers.clear();
-        
-        socket.emit('join-voice', { channelId: currentChannel.id }, (response) => {
-          if (response && response.success) {
-            isInVoice = true;
-            const connectBtn = document.getElementById('voice-connect-btn');
-            if (connectBtn) { 
-              connectBtn.textContent = '🔴 Отключиться'; 
-              connectBtn.classList.add('leave'); 
-            }
-            socket.emit('get-voice-users', currentChannel.id, (users) => {
-              if (users) {
-                users.forEach(user => {
-                  if (user.socketId !== socket.id && !peerConnections.has(user.socketId)) {
-                    createPeerConnection(user.socketId, config);
-                  }
-                });
-              }
-            });
-          }
-        });
-      } catch (err) { 
-        console.error('Ошибка микрофона:', err);
-        showNotification('Ошибка', 'Не удалось получить доступ к микрофону'); 
-      }
-    }
-    
-    function leaveVoiceChannel() {
-      if (voiceStream) { voiceStream.getTracks().forEach(track => track.stop()); voiceStream = null; }
-      peerConnections.forEach(pc => pc.close());
-      peerConnections.clear();
-      initiatingPeers.clear();
-      socket.emit('leave-voice', { channelId: currentChannel.id });
-      isInVoice = false;
-      const connectBtn = document.getElementById('voice-connect-btn');
-      if (connectBtn) { 
-        connectBtn.textContent = '🎤 Подключиться'; 
-        connectBtn.classList.remove('leave'); 
-      }
-      const voiceUsersDiv = document.getElementById('voice-users');
-      if (voiceUsersDiv) voiceUsersDiv.textContent = '👥 0 в голосе';
-    }
-    
-    async function createPeerConnection(targetId, config) {
-      if (peerConnections.has(targetId)) {
-        const existing = peerConnections.get(targetId);
-        if (existing.connectionState === 'connected' || existing.connectionState === 'connecting') {
-          return existing;
-        }
-        existing.close();
-        peerConnections.delete(targetId);
-      }
-      
-      if (initiatingPeers.has(targetId)) return;
-      initiatingPeers.add(targetId);
-      
-      const pc = new RTCPeerConnection(config);
-      peerConnections.set(targetId, pc);
-      
-      if (voiceStream) {
-        voiceStream.getTracks().forEach(track => {
-          pc.addTrack(track, voiceStream);
-        });
-      }
-      
-      pc.ontrack = (event) => {
-        console.log(`🎵 Получен аудио поток от ${targetId}`);
-        const audio = new Audio();
-        audio.srcObject = event.streams[0];
-        audio.autoplay = true;
-        audio.volume = 1;
-        audio.play().catch(e => console.warn('Play error:', e));
-      };
-      
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit('voice-ice-candidate', { targetId, candidate: event.candidate });
-        }
-      };
-      
-      pc.oniceconnectionstatechange = () => {
-        console.log(`ICE состояние с ${targetId}: ${pc.iceConnectionState}`);
-        if (pc.iceConnectionState === 'connected') {
-          console.log(`✅ СОЕДИНЕНИЕ УСТАНОВЛЕНО С ${targetId}!`);
-          showNotification('Голос', 'Соединение установлено');
-        }
-      };
-      
-      try {
-        const offer = await pc.createOffer();
-        await pc.setLocalDescription(offer);
-        socket.emit('voice-offer', { targetId, offer });
-      } catch (err) {
-        console.error('Ошибка при создании offer:', err);
-      } finally {
-        initiatingPeers.delete(targetId);
-      }
-      
-      return pc;
-    }
-    
-    function updateVoiceUsers() {
-      if (!currentChannel || currentChannel.type !== 'voice') return;
-      socket.emit('get-voice-users', currentChannel.id, (users) => {
-        const voiceUsersDiv = document.getElementById('voice-users');
-        if (voiceUsersDiv) voiceUsersDiv.textContent = `👥 ${users?.length || 0} в голосе`;
-      });
     }
     
     function renderUI() {
@@ -1005,88 +1035,6 @@
       socket.on('server-members', ({ serverId, members }) => { if (currentServer && currentServer.id === serverId) { currentServer.members = members; renderUI(); } });
       socket.on('all-users', (users) => { allUsers = users; });
       socket.on('user-status-update', ({ userId, status, lastActivity }) => { userStatuses.set(userId, { status, lastActivity }); if (currentServer && currentServer.members?.some(m => m.userId === userId)) { const memberDiv = document.querySelector(`.member[data-user-id="${userId}"] .member-status-dot`); if (memberDiv) { memberDiv.className = `member-status-dot ${status}`; const statusSpan = memberDiv.parentElement?.querySelector('.member-status span:last-child'); if (statusSpan) statusSpan.textContent = { online: 'В сети', away: 'Отошёл', offline: 'Не в сети' }[status]; } } });
-      socket.on('user-joined-voice', ({ socketId }) => { 
-        if (isInVoice && socketId !== socket.id && !peerConnections.has(socketId)) {
-          (async () => {
-            const iceServers = await getIceServers();
-            const config = { iceServers, iceTransportPolicy: 'relay', iceCandidatePoolSize: 10 };
-            createPeerConnection(socketId, config);
-          })();
-        }
-        updateVoiceUsers(); 
-      });
-      socket.on('user-left-voice', ({ socketId }) => { 
-        const pc = peerConnections.get(socketId); 
-        if (pc) { 
-          pc.close(); 
-          peerConnections.delete(socketId); 
-        } 
-        updateVoiceUsers(); 
-      });
-      socket.on('voice-offer', async ({ fromId, offer }) => { 
-        if (!isInVoice || fromId === socket.id) return;
-        if (peerConnections.has(fromId)) return;
-        
-        const iceServers = await getIceServers();
-        const config = { iceServers, iceTransportPolicy: 'relay', iceCandidatePoolSize: 10 };
-        
-        const pc = new RTCPeerConnection(config);
-        peerConnections.set(fromId, pc);
-        
-        if (voiceStream) {
-          voiceStream.getTracks().forEach(track => {
-            pc.addTrack(track, voiceStream);
-          });
-        }
-        
-        pc.ontrack = (event) => {
-          console.log(`🎵 Получен аудио поток от ${fromId}`);
-          const audio = new Audio();
-          audio.srcObject = event.streams[0];
-          audio.autoplay = true;
-        };
-        
-        pc.onicecandidate = (event) => {
-          if (event.candidate) {
-            socket.emit('voice-ice-candidate', {
-              targetId: fromId,
-              candidate: event.candidate
-            });
-          }
-        };
-        
-        try {
-          await pc.setRemoteDescription(new RTCSessionDescription(offer));
-          const answer = await pc.createAnswer();
-          await pc.setLocalDescription(answer);
-          socket.emit('voice-answer', { targetId: fromId, answer });
-        } catch (err) {
-          console.error('Ошибка в voice-offer:', err);
-          pc.close();
-          peerConnections.delete(fromId);
-        }
-      });
-      socket.on('voice-answer', async ({ fromId, answer }) => { 
-        const pc = peerConnections.get(fromId); 
-        if (pc) {
-          try {
-            await pc.setRemoteDescription(new RTCSessionDescription(answer));
-          } catch (err) {
-            console.error('Ошибка в voice-answer:', err);
-          }
-        }
-      });
-      socket.on('voice-ice-candidate', async ({ fromId, candidate }) => { 
-        const pc = peerConnections.get(fromId); 
-        if (pc && pc.remoteDescription) {
-          try {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
-          } catch (err) {
-            console.error('Ошибка в voice-ice-candidate:', err);
-          }
-        }
-      });
-      socket.on('voice-users', () => updateVoiceUsers());
     }
 
     const saved = localStorage.getItem('atomcord_user');
