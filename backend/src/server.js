@@ -14,10 +14,12 @@ dotenv.config();
 const app = express();
 const httpServer = createServer(app);
 
-// Middleware
+// CORS настройки
 app.use(cors({
   origin: '*',
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../public')));
@@ -35,7 +37,7 @@ app.get('/api/stats', (req, res) => {
   });
 });
 
-// Socket.IO с настройками для уменьшения задержки
+// Socket.IO с правильными настройками для Render
 const io = new Server(httpServer, {
   cors: {
     origin: '*',
@@ -43,6 +45,7 @@ const io = new Server(httpServer, {
     methods: ['GET', 'POST']
   },
   transports: ['websocket', 'polling'],
+  allowEIO3: true,
   pingTimeout: 60000,
   pingInterval: 25000
 });
