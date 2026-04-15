@@ -1,4 +1,3 @@
-<!-- frontend/chat/index.html -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -214,6 +213,9 @@
     let servers = [];
     let dms = [];
     let messagesCache = {};
+    let voiceStream = null;
+    let peerConnections = new Map();
+    let isInVoice = false;
     let userStatuses = new Map();
     let allUsers = [];
     let globalSearchResults = [];
@@ -223,7 +225,28 @@
     let renderTimeout = null;
     let isRendering = false;
     let lastActivityTime = 0;
-    let isInVoice = false;
+    let initiatingPeers = new Set();
+    
+    // ========== WEBRTC КОНФИГУРАЦИЯ С TURN (OpenRelay) ==========
+    const RTC_CONFIG = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { 
+          urls: 'turn:openrelay.metered.ca:80', 
+          username: 'openrelayproject', 
+          credential: 'openrelayproject' 
+        },
+        { 
+          urls: 'turn:openrelay.metered.ca:443', 
+          username: 'openrelayproject', 
+          credential: 'openrelayproject' 
+        }
+      ],
+      iceCandidatePoolSize: 10,
+      iceTransportPolicy: 'all'
+    };
     
     const defaultAvatars = ['⚛️', '😀', '😂', '😎', '🥳', '😍', '🔥', '💀', '👻', '🤖', '🐱', '🐶', '🦊', '🐼', '🍕', '🎮', '💪', '🎧', '📷', '✈️'];
     
@@ -236,20 +259,6 @@
       customStatus: '',
       playing: ''
     };
-    
-    // ========== ВРЕМЕННАЯ ЗАГЛУШКА ДЛЯ ГОЛОСА ==========
-    async function joinVoiceChannel() {
-      showNotification('Голос', 'Голосовой чат временно отключён. Ведутся технические работы.');
-    }
-    
-    function leaveVoiceChannel() {
-      // Заглушка
-    }
-    
-    function updateVoiceUsers() {
-      const voiceUsersDiv = document.getElementById('voice-users');
-      if (voiceUsersDiv) voiceUsersDiv.textContent = '👥 0 в голосе';
-    }
     
     function loadProfile() {
       const saved = localStorage.getItem('atomcord_profile');
@@ -457,6 +466,130 @@
     function closeDM() {
       currentDM = null;
       renderUI();
+    }
+    
+    // ========== ГОЛОСОВАЯ ЧАСТЬ С TURN ==========
+    async function joinVoiceChannel() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        voiceStream = stream;
+        peerConnections.clear();
+        initiatingPeers.clear();
+        socket.emit('join-voice', { channelId: currentChannel.id }, (response) => {
+          if (response && response.success) {
+            isInVoice = true;
+            const connectBtn = document.getElementById('voice-connect-btn');
+            if (connectBtn) { 
+              connectBtn.textContent = '🔴 Отключиться'; 
+              connectBtn.classList.add('leave'); 
+            }
+            socket.emit('get-voice-users', currentChannel.id, (users) => {
+              if (users) {
+                users.forEach(user => {
+                  if (user.socketId !== socket.id && !peerConnections.has(user.socketId)) {
+                    createPeerConnection(user.socketId);
+                  }
+                });
+              }
+            });
+          }
+        });
+      } catch (err) { 
+        console.error('Ошибка микрофона:', err);
+        showNotification('Ошибка', 'Не удалось получить доступ к микрофону'); 
+      }
+    }
+    
+    function leaveVoiceChannel() {
+      if (voiceStream) { voiceStream.getTracks().forEach(track => track.stop()); voiceStream = null; }
+      peerConnections.forEach(pc => pc.close());
+      peerConnections.clear();
+      initiatingPeers.clear();
+      socket.emit('leave-voice', { channelId: currentChannel.id });
+      isInVoice = false;
+      const connectBtn = document.getElementById('voice-connect-btn');
+      if (connectBtn) { 
+        connectBtn.textContent = '🎤 Подключиться'; 
+        connectBtn.classList.remove('leave'); 
+      }
+      const voiceUsersDiv = document.getElementById('voice-users');
+      if (voiceUsersDiv) voiceUsersDiv.textContent = '👥 0 в голосе';
+    }
+    
+    async function createPeerConnection(targetId) {
+      if (peerConnections.has(targetId)) {
+        const existing = peerConnections.get(targetId);
+        if (existing.connectionState === 'connected' || existing.connectionState === 'connecting') {
+          return existing;
+        }
+        existing.close();
+        peerConnections.delete(targetId);
+      }
+      
+      if (initiatingPeers.has(targetId)) return;
+      initiatingPeers.add(targetId);
+      
+      console.log(`🔧 Создаю PeerConnection для ${targetId} с TURN серверами`);
+      
+      const pc = new RTCPeerConnection(RTC_CONFIG);
+      peerConnections.set(targetId, pc);
+      
+      if (voiceStream) {
+        voiceStream.getTracks().forEach(track => {
+          pc.addTrack(track, voiceStream);
+        });
+      }
+      
+      pc.ontrack = (event) => {
+        console.log(`🎵 Получен аудио поток от ${targetId}`);
+        const audio = new Audio();
+        audio.srcObject = event.streams[0];
+        audio.autoplay = true;
+        audio.volume = 1;
+        audio.muted = false;
+      };
+      
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          console.log(`❄️ ICE кандидат (${targetId}, тип: ${event.candidate.type})`);
+          socket.emit('voice-ice-candidate', { targetId, candidate: event.candidate });
+        } else {
+          console.log(`✅ Сбор ICE кандидатов для ${targetId} завершён`);
+        }
+      };
+      
+      pc.oniceconnectionstatechange = () => {
+        console.log(`🔄 ICE состояние с ${targetId}: ${pc.iceConnectionState}`);
+        if (pc.iceConnectionState === 'connected') {
+          console.log(`✅ УРА! P2P соединение с ${targetId} установлено!`);
+          showNotification('Голос', 'Соединение установлено');
+        }
+        if (pc.iceConnectionState === 'failed') {
+          console.error(`❌ ICE соединение с ${targetId} ПРОВАЛИЛОСЬ!`);
+          showNotification('Голос', 'Не удалось установить соединение');
+        }
+      };
+      
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit('voice-offer', { targetId, offer });
+        console.log(`📤 Offer отправлен для ${targetId}`);
+      } catch (err) {
+        console.error('Ошибка при создании offer:', err);
+      } finally {
+        initiatingPeers.delete(targetId);
+      }
+      
+      return pc;
+    }
+    
+    function updateVoiceUsers() {
+      if (!currentChannel || currentChannel.type !== 'voice') return;
+      socket.emit('get-voice-users', currentChannel.id, (users) => {
+        const voiceUsersDiv = document.getElementById('voice-users');
+        if (voiceUsersDiv) voiceUsersDiv.textContent = `👥 ${users?.length || 0} в голосе`;
+      });
     }
     
     function renderUI() {
@@ -881,6 +1014,84 @@
       socket.on('server-members', ({ serverId, members }) => { if (currentServer && currentServer.id === serverId) { currentServer.members = members; renderUI(); } });
       socket.on('all-users', (users) => { allUsers = users; });
       socket.on('user-status-update', ({ userId, status, lastActivity }) => { userStatuses.set(userId, { status, lastActivity }); if (currentServer && currentServer.members?.some(m => m.userId === userId)) { const memberDiv = document.querySelector(`.member[data-user-id="${userId}"] .member-status-dot`); if (memberDiv) { memberDiv.className = `member-status-dot ${status}`; const statusSpan = memberDiv.parentElement?.querySelector('.member-status span:last-child'); if (statusSpan) statusSpan.textContent = { online: 'В сети', away: 'Отошёл', offline: 'Не в сети' }[status]; } } });
+      socket.on('user-joined-voice', ({ socketId }) => { 
+        if (isInVoice && socketId !== socket.id && !peerConnections.has(socketId)) {
+          createPeerConnection(socketId);
+        }
+        updateVoiceUsers(); 
+      });
+      socket.on('user-left-voice', ({ socketId }) => { 
+        const pc = peerConnections.get(socketId); 
+        if (pc) { 
+          pc.close(); 
+          peerConnections.delete(socketId); 
+        } 
+        updateVoiceUsers(); 
+      });
+      socket.on('voice-offer', async ({ fromId, offer }) => { 
+        if (!isInVoice || fromId === socket.id) return;
+        if (peerConnections.has(fromId)) return;
+        
+        console.log(`📞 Получен offer от ${fromId}`);
+        
+        const pc = new RTCPeerConnection(RTC_CONFIG);
+        peerConnections.set(fromId, pc);
+        
+        if (voiceStream) {
+          voiceStream.getTracks().forEach(track => {
+            pc.addTrack(track, voiceStream);
+          });
+        }
+        
+        pc.ontrack = (event) => {
+          console.log(`🎵 Получен аудио поток от ${fromId}`);
+          const audio = new Audio();
+          audio.srcObject = event.streams[0];
+          audio.autoplay = true;
+        };
+        
+        pc.onicecandidate = (event) => {
+          if (event.candidate) {
+            console.log(`❄️ ICE кандидат (${fromId}, тип: ${event.candidate.type})`);
+            socket.emit('voice-ice-candidate', {
+              targetId: fromId,
+              candidate: event.candidate
+            });
+          }
+        };
+        
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(offer));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          socket.emit('voice-answer', { targetId: fromId, answer });
+        } catch (err) {
+          console.error('Ошибка в voice-offer:', err);
+          pc.close();
+          peerConnections.delete(fromId);
+        }
+      });
+      socket.on('voice-answer', async ({ fromId, answer }) => { 
+        const pc = peerConnections.get(fromId); 
+        if (pc) {
+          try {
+            await pc.setRemoteDescription(new RTCSessionDescription(answer));
+          } catch (err) {
+            console.error('Ошибка в voice-answer:', err);
+          }
+        }
+      });
+      socket.on('voice-ice-candidate', async ({ fromId, candidate }) => { 
+        const pc = peerConnections.get(fromId); 
+        if (pc && pc.remoteDescription) {
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (err) {
+            console.error('Ошибка в voice-ice-candidate:', err);
+          }
+        }
+      });
+      socket.on('voice-users', () => updateVoiceUsers());
     }
 
     const saved = localStorage.getItem('atomcord_user');
